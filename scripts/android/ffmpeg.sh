@@ -414,6 +414,74 @@ fi
 
 ###################################################################
 
+#./configure \
+#  --cross-prefix="${HOST}-" \
+#  --sysroot="${ANDROID_SYSROOT}" \
+#  --prefix="${FFMPEG_LIBRARY_PATH}" \
+#  --pkg-config="${HOST_PKG_CONFIG_PATH}" \
+#  --enable-version3 \
+#  --arch="${TARGET_ARCH}" \
+#  --cpu="${TARGET_CPU}" \
+#  --target-os=android \
+#  ${ASM_OPTIONS} \
+#  --ar="${AR}" \
+#  --cc="${CC}" \
+#  --cxx="${CXX}" \
+#  --ranlib="${RANLIB}" \
+#  --strip="${STRIP}" \
+#  --nm="${NM}" \
+#  --extra-libs="$(pkg-config --libs --static cpu-features)" \
+#  --disable-autodetect \
+#  --enable-cross-compile \
+#  --enable-pic \
+#  --enable-jni \
+#  --enable-optimizations \
+#  --enable-swscale \
+#  ${BUILD_LIBRARY_OPTIONS} \
+#  --enable-pthreads \
+#  --enable-v4l2-m2m \
+#  --disable-outdev=fbdev \
+#  --disable-indev=fbdev \
+#  ${SIZE_OPTIONS} \
+#  --disable-xmm-clobber-test \
+#  ${DEBUG_OPTIONS} \
+#  --disable-neon-clobber-test \
+#  --disable-programs \
+#  --disable-postproc \
+#  --disable-doc \
+#  --disable-htmlpages \
+#  --disable-manpages \
+#  --disable-podpages \
+#  --disable-txtpages \
+#  --disable-sndio \
+#  --disable-schannel \
+#  --disable-securetransport \
+#  --disable-xlib \
+#  --disable-cuda \
+#  --disable-cuvid \
+#  --disable-nvenc \
+#  --disable-vaapi \
+#  --disable-vdpau \
+#  --disable-videotoolbox \
+#  --disable-audiotoolbox \
+#  --disable-appkit \
+#  --disable-alsa \
+#  --disable-cuda \
+#  --disable-cuvid \
+#  --disable-nvenc \
+#  --disable-vaapi \
+#  --disable-vdpau \
+#  ${CONFIGURE_POSTFIX} 1>>"${BASEDIR}"/build.log 2>&1
+
+
+# filter aresample is required for audio resampling
+# decoder aac* and ac3* are required for decoding aac and ac3 audio
+# encoder libmp3lame is required for encoding mp3 audio
+# demuxer mov, mpegts, aac, mp3 are required for demuxing mov, mpegts, aac and mp3 files
+# muxer mp3, mpegts, aac are required for muxing mp3, mpegts and aac files
+# protocol file is required for file access
+# protocol hls is required for HLS access
+
 ./configure \
   --cross-prefix="${HOST}-" \
   --sysroot="${ANDROID_SYSROOT}" \
@@ -431,46 +499,21 @@ fi
   --strip="${STRIP}" \
   --nm="${NM}" \
   --extra-libs="$(pkg-config --libs --static cpu-features)" \
+  --disable-everything \
   --disable-autodetect \
   --enable-cross-compile \
+  --enable-optimizations \
+  ${BUILD_LIBRARY_OPTIONS} \
   --enable-pic \
   --enable-jni \
-  --enable-optimizations \
-  --enable-swscale \
-  ${BUILD_LIBRARY_OPTIONS} \
   --enable-pthreads \
-  --enable-v4l2-m2m \
-  --disable-outdev=fbdev \
-  --disable-indev=fbdev \
-  ${SIZE_OPTIONS} \
-  --disable-xmm-clobber-test \
-  ${DEBUG_OPTIONS} \
-  --disable-neon-clobber-test \
-  --disable-programs \
-  --disable-postproc \
-  --disable-doc \
-  --disable-htmlpages \
-  --disable-manpages \
-  --disable-podpages \
-  --disable-txtpages \
-  --disable-sndio \
-  --disable-schannel \
-  --disable-securetransport \
-  --disable-xlib \
-  --disable-cuda \
-  --disable-cuvid \
-  --disable-nvenc \
-  --disable-vaapi \
-  --disable-vdpau \
-  --disable-videotoolbox \
-  --disable-audiotoolbox \
-  --disable-appkit \
-  --disable-alsa \
-  --disable-cuda \
-  --disable-cuvid \
-  --disable-nvenc \
-  --disable-vaapi \
-  --disable-vdpau \
+  --enable-small \
+  --enable-filter=aresample \
+  --enable-decoder=aac*,ac3*,mp3 \
+  --enable-encoder=libmp3lame \
+  --enable-demuxer=mov,mpegts,aac,mp3,hls \
+  --enable-muxer=mp3,aac \
+  --enable-protocol=file,hls,https \
   ${CONFIGURE_POSTFIX} 1>>"${BASEDIR}"/build.log 2>&1
 
 if [[ $? -ne 0 ]]; then
