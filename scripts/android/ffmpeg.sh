@@ -508,13 +508,12 @@ fi
   --enable-jni \
   --enable-pthreads \
   --enable-small \
-  --enable-nonfree \
   --enable-filter=aresample,acopy \
-  --enable-decoder=aac,mp3 \
-  --enable-encoder=libmp3lame,aac \
-  --enable-demuxer=mov,mpegts,aac,mp3,hls \
-  --enable-parser=aac \
-  --enable-muxer=mp3,aac \
+  --enable-decoder=aac*,mp3,ac3* \
+  --enable-encoder=libmp3lame,aac* \
+  --enable-demuxer=mov,mpegts,aac*,mp3,hls \
+  --enable-parser=aac* \
+  --enable-muxer=mp3,mp4,ipod,aac* \
   --enable-protocol=file,hls,https \
   ${CONFIGURE_POSTFIX} 1>>"${BASEDIR}"/build.log 2>&1
 
