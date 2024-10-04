@@ -28,7 +28,8 @@ Post logs here or paste them to [Ghostbin](https://ghostbin.co) and insert the l
 **Environment**
 
 - Platform: `Android`/`Flutter`/`iOS`/`Linux`/`macOS`/`ReactNative`/`tvOS`
-- Architecture: `arm-v7a`, `arm-v7a-neon`, `arm64-v8a`, `x86`, `x86_64`, `armv7`, `armv7s`, `arm64`, `arm64-mac-catalyst`, `arm64-simulator`, `arm64e`, `i386`, `x86-64`, `x86-64-mac-catalyst`
+- Architecture: `arm-v7a`, `arm-v7a-neon`, `arm64-v8a`, `x86`, `x86_64`, `armv7`, `armv7s`, `arm64`,
+  `arm64-mac-catalyst`, `arm64-simulator`, `arm64e`, `i386`, `x86-64`, `x86-64-mac-catalyst`
 - Version: `v5.1`/`v5.1.LTS`
 - Source branch: `main`, `development`
 - Xcode version: `13.4.1`

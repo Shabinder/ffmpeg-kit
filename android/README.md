@@ -1,6 +1,7 @@
 # FFmpegKit for Android
 
 ### 1. Features
+
 - Supports `API Level 24+` on Main releases and `API Level 16+` on LTS releases
 - Includes `arm-v7a`, `arm-v7a-neon`, `arm64-v8a`, `x86` and `x86_64` architectures
 - Can handle Storage Access Framework (SAF) Uris
@@ -10,10 +11,12 @@
 
 ### 2. Building
 
-Run `android.sh` at project root directory to build `ffmpeg-kit` and `ffmpeg` shared libraries. 
+Run `android.sh` at project root directory to build `ffmpeg-kit` and `ffmpeg` shared libraries.
 
-Please note that `FFmpegKit` project repository includes the source code of `FFmpegKit` only. `android.sh` needs 
-network connectivity and internet access to `github.com` in order to download the source code of `FFmpeg` and 
+Please note that `FFmpegKit` project repository includes the source code of `FFmpegKit` only.
+`android.sh` needs
+network connectivity and internet access to `github.com` in order to download the source code of
+`FFmpeg` and
 external libraries enabled.
 
 #### 2.1 Prerequisites
@@ -21,8 +24,11 @@ external libraries enabled.
 `android.sh` requires the following tools and packages.
 
 ##### 2.1.1 Android Tools
-   - Android SDK Build Tools
-   - Android NDK r22b or later with LLDB and CMake (See [#292](https://github.com/arthenica/ffmpeg-kit/issues/292) if you want to use NDK r23b or later)
+
+- Android SDK Build Tools
+- Android NDK r22b or later with LLDB and CMake (
+  See [#292](https://github.com/arthenica/ffmpeg-kit/issues/292) if you want to use NDK r23b or
+  later)
 
 ##### 2.1.2 Packages
 
@@ -32,7 +38,7 @@ Use your package manager (apt, yum, dnf, brew, etc.) to install the following pa
 autoconf automake libtool pkg-config curl git doxygen nasm cmake gcc gperf texinfo yasm bison autogen wget autopoint meson ninja ragel groff gtk-doc-tools libtasn1
 ```
 
-##### 2.1.3 Environment Variables 
+##### 2.1.3 Environment Variables
 
 Set `ANDROID_SDK_ROOT` and `ANDROID_NDK_ROOT` environment variables before running `android.sh`.
 
@@ -61,14 +67,15 @@ Use `--lts` option to build lts binaries for each architecture.
 All libraries created by `android.sh` can be found under the `prebuilt` directory.
 
 - `Android` archive (.aar file) for `Main` builds is located under the `bundle-android-aar` folder.
-- `Android` archive (.aar file) for `LTS` builds is located under the `bundle-android-aar-lts` folder.
+- `Android` archive (.aar file) for `LTS` builds is located under the `bundle-android-aar-lts`
+  folder.
 
 ### 3. Using
 
 #### 3.1 Android API
 
-1. Declare `mavenCentral` repository and add `FFmpegKit` dependency to your `build.gradle` in 
-   `ffmpeg-kit-<package name>` pattern. Use one of the `FFmpegKit` package names given in the 
+1. Declare `mavenCentral` repository and add `FFmpegKit` dependency to your `build.gradle` in
+   `ffmpeg-kit-<package name>` pattern. Use one of the `FFmpegKit` package names given in the
    project [README](https://github.com/arthenica/ffmpeg-kit).
 
     ```yaml
@@ -103,7 +110,8 @@ All libraries created by `android.sh` can be found under the `prebuilt` director
     }
     ```
 
-3. Each `execute` call (sync or async) creates a new session. Access every detail about your execution from the 
+3. Each `execute` call (sync or async) creates a new session. Access every detail about your
+   execution from the
    session created.
 
     ```java
@@ -141,7 +149,8 @@ All libraries created by `android.sh` can be found under the `prebuilt` director
     List<Statistics> statistics = session.getStatistics();
     ```
 
-4. Execute asynchronous `FFmpeg` commands by providing session specific `execute`/`log`/`session` callbacks.
+4. Execute asynchronous `FFmpeg` commands by providing session specific `execute`/`log`/`session`
+   callbacks.
 
     ```java
     FFmpegKit.executeAsync("-i file1.mp4 -c:v mpeg4 file2.mp4", new FFmpegSessionCompleteCallback() {
@@ -176,7 +185,7 @@ All libraries created by `android.sh` can be found under the `prebuilt` director
 
 5. Execute `FFprobe` commands.
 
-    - Synchronous
+  - Synchronous
 
     ```java
     FFprobeSession session = FFprobeKit.execute(ffprobeCommand);
@@ -186,11 +195,11 @@ All libraries created by `android.sh` can be found under the `prebuilt` director
     }
     ```
 
-    - Asynchronous
+  - Asynchronous
 
     ```java
     FFprobeKit.executeAsync(ffprobeCommand, new FFprobeSessionCompleteCallback() {
-   
+
         @Override
         public void apply(FFprobeSession session) {
 
@@ -209,39 +218,40 @@ All libraries created by `android.sh` can be found under the `prebuilt` director
 
 7. Stop ongoing `FFmpeg` operations.
 
-    - Stop all executions
-        ```java
-        FFmpegKit.cancel();
-        ```
-    - Stop a specific session
-        ```java
-        FFmpegKit.cancel(sessionId);
-        ```
+  - Stop all executions
+      ```java
+      FFmpegKit.cancel();
+      ```
+  - Stop a specific session
+      ```java
+      FFmpegKit.cancel(sessionId);
+      ```
 
-8. Convert Storage Access Framework (SAF) Uris into paths that can be read or written by `FFmpegKit`.
-   - Reading a file:
-  
-        ```java
-        Uri safUri = intent.getData();
-        String inputVideoPath = FFmpegKitConfig.getSafParameterForRead(requireContext(), safUri);
-        FFmpegKit.execute("-i " + inputVideoPath + " -c:v mpeg4 file2.mp4");
-        ```
-    
-    - Writing to a file:
-  
-        ```java
-        Uri safUri = intent.getData();
-        String outputVideoPath = FFmpegKitConfig.getSafParameterForWrite(requireContext(), safUri);
-        FFmpegKit.execute("-i file1.mp4 -c:v mpeg4 " + outputVideoPath);
-        ```
-
-   - Writing to a file in a custom mode.
+8. Convert Storage Access Framework (SAF) Uris into paths that can be read or written by
+   `FFmpegKit`.
+  - Reading a file:
 
        ```java
        Uri safUri = intent.getData();
-       String path = FFmpegKitConfig.getSafParameter(requireContext(), safUri, "rw");
-       FFmpegKit.execute("-i file1.mp4 -c:v mpeg4 " + path);
+       String inputVideoPath = FFmpegKitConfig.getSafParameterForRead(requireContext(), safUri);
+       FFmpegKit.execute("-i " + inputVideoPath + " -c:v mpeg4 file2.mp4");
        ```
+
+  - Writing to a file:
+
+      ```java
+      Uri safUri = intent.getData();
+      String outputVideoPath = FFmpegKitConfig.getSafParameterForWrite(requireContext(), safUri);
+      FFmpegKit.execute("-i file1.mp4 -c:v mpeg4 " + outputVideoPath);
+      ```
+
+  - Writing to a file in a custom mode.
+
+      ```java
+      Uri safUri = intent.getData();
+      String path = FFmpegKitConfig.getSafParameter(requireContext(), safUri, "rw");
+      FFmpegKit.execute("-i file1.mp4 -c:v mpeg4 " + path);
+      ```
 
 9. Get previous `FFmpeg` and `FFprobe` sessions from session history.
 
@@ -261,59 +271,60 @@ All libraries created by `android.sh` can be found under the `prebuilt` director
 
 10. Enable global callbacks.
 
-    - Session type specific Complete Callbacks, called when an async session has been completed
+  - Session type specific Complete Callbacks, called when an async session has been completed
 
-        ```java
-        FFmpegKitConfig.enableFFmpegSessionCompleteCallback(new FFmpegSessionCompleteCallback() {
+      ```java
+      FFmpegKitConfig.enableFFmpegSessionCompleteCallback(new FFmpegSessionCompleteCallback() {
 
-            @Override
-            public void apply(FFmpegSession session) {
+          @Override
+          public void apply(FFmpegSession session) {
 
-            }
-        });
+          }
+      });
 
-        FFmpegKitConfig.enableFFprobeSessionCompleteCallback(new FFprobeSessionCompleteCallback() {
+      FFmpegKitConfig.enableFFprobeSessionCompleteCallback(new FFprobeSessionCompleteCallback() {
 
-            @Override
-            public void apply(FFprobeSession session) {
+          @Override
+          public void apply(FFprobeSession session) {
 
-            }
-        });
+          }
+      });
 
-        FFmpegKitConfig.enableMediaInformationSessionCompleteCallback(new MediaInformationSessionCompleteCallback() {
+      FFmpegKitConfig.enableMediaInformationSessionCompleteCallback(new MediaInformationSessionCompleteCallback() {
 
-            @Override
-            public void apply(MediaInformationSession session) {
+          @Override
+          public void apply(MediaInformationSession session) {
 
-            }
-        });
-        ```
+          }
+      });
+      ```
 
-    - Log Callback, called when a session generates logs
+  - Log Callback, called when a session generates logs
 
-        ```java
-        FFmpegKitConfig.enableLogCallback(new LogCallback() {
-    
-            @Override
-            public void apply(final com.arthenica.ffmpegkit.Log log) {
-                ...
-            }
-        });
-        ```
+      ```java
+      FFmpegKitConfig.enableLogCallback(new LogCallback() {
 
-    - Statistics Callback, called when a session generates statistics
+          @Override
+          public void apply(final com.arthenica.ffmpegkit.Log log) {
+              ...
+          }
+      });
+      ```
 
-        ```java
-        FFmpegKitConfig.enableStatisticsCallback(new StatisticsCallback() {
+  - Statistics Callback, called when a session generates statistics
 
-            @Override
-            public void apply(final Statistics newStatistics) {
-                ...
-            }
-        });
-        ```
+      ```java
+      FFmpegKitConfig.enableStatisticsCallback(new StatisticsCallback() {
 
-11. Ignore the handling of a signal. Required by `Mono` and frameworks that use `Mono`, e.g. `Unity` and `Xamarin`.
+          @Override
+          public void apply(final Statistics newStatistics) {
+              ...
+          }
+      });
+      ```
+
+11. Ignore the handling of a signal. Required by `Mono` and frameworks that use `Mono`, e.g. `Unity`
+    and `Xamarin`.
 
     ```java
     FFmpegKitConfig.ignoreSignal(Signal.SIGXCPU);
@@ -327,5 +338,6 @@ All libraries created by `android.sh` can be found under the `prebuilt` director
 
 ### 4. Test Application
 
-You can see how `FFmpegKit` is used inside an application by running `Android` test applications developed under the
+You can see how `FFmpegKit` is used inside an application by running `Android` test applications
+developed under the
 [FFmpegKit Test](https://github.com/arthenica/ffmpeg-kit-test) project.

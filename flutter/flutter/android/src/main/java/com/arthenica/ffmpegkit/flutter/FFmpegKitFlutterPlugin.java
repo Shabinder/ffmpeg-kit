@@ -77,1487 +77,1476 @@ import io.flutter.plugin.common.PluginRegistry;
 
 public class FFmpegKitFlutterPlugin implements FlutterPlugin, ActivityAware, MethodCallHandler, EventChannel.StreamHandler, PluginRegistry.ActivityResultListener {
 
-    public static final String LIBRARY_NAME = "ffmpeg-kit-flutter";
-    public static final String PLATFORM_NAME = "android";
+  public static final String LIBRARY_NAME = "ffmpeg-kit-flutter";
+  public static final String PLATFORM_NAME = "android";
+  // LOG CLASS
+  public static final String KEY_LOG_SESSION_ID = "sessionId";
+  public static final String KEY_LOG_LEVEL = "level";
+  public static final String KEY_LOG_MESSAGE = "message";
+  // STATISTICS CLASS
+  public static final String KEY_STATISTICS_SESSION_ID = "sessionId";
+  public static final String KEY_STATISTICS_VIDEO_FRAME_NUMBER = "videoFrameNumber";
+  public static final String KEY_STATISTICS_VIDEO_FPS = "videoFps";
+  public static final String KEY_STATISTICS_VIDEO_QUALITY = "videoQuality";
+  public static final String KEY_STATISTICS_SIZE = "size";
+  public static final String KEY_STATISTICS_TIME = "time";
+  public static final String KEY_STATISTICS_BITRATE = "bitrate";
+  public static final String KEY_STATISTICS_SPEED = "speed";
+  // SESSION CLASS
+  public static final String KEY_SESSION_ID = "sessionId";
+  public static final String KEY_SESSION_CREATE_TIME = "createTime";
+  public static final String KEY_SESSION_START_TIME = "startTime";
+  public static final String KEY_SESSION_COMMAND = "command";
+  public static final String KEY_SESSION_TYPE = "type";
+  public static final String KEY_SESSION_MEDIA_INFORMATION = "mediaInformation";
+  // SESSION TYPE
+  public static final int SESSION_TYPE_FFMPEG = 1;
+  public static final int SESSION_TYPE_FFPROBE = 2;
+  public static final int SESSION_TYPE_MEDIA_INFORMATION = 3;
+  // EVENTS
+  public static final String EVENT_LOG_CALLBACK_EVENT = "FFmpegKitLogCallbackEvent";
+  public static final String EVENT_STATISTICS_CALLBACK_EVENT = "FFmpegKitStatisticsCallbackEvent";
+  public static final String EVENT_COMPLETE_CALLBACK_EVENT = "FFmpegKitCompleteCallbackEvent";
+  // REQUEST CODES
+  public static final int READABLE_REQUEST_CODE = 10000;
+  public static final int WRITABLE_REQUEST_CODE = 20000;
+  // ARGUMENT NAMES
+  public static final String ARGUMENT_SESSION_ID = "sessionId";
+  public static final String ARGUMENT_WAIT_TIMEOUT = "waitTimeout";
+  public static final String ARGUMENT_ARGUMENTS = "arguments";
+  public static final String ARGUMENT_FFPROBE_JSON_OUTPUT = "ffprobeJsonOutput";
+  public static final String ARGUMENT_WRITABLE = "writable";
+  private static final String METHOD_CHANNEL = "flutter.arthenica.com/ffmpeg_kit";
+  private static final String EVENT_CHANNEL = "flutter.arthenica.com/ffmpeg_kit_event";
+  private static final int asyncConcurrencyLimit = 10;
 
-    private static final String METHOD_CHANNEL = "flutter.arthenica.com/ffmpeg_kit";
-    private static final String EVENT_CHANNEL = "flutter.arthenica.com/ffmpeg_kit_event";
+  private final AtomicBoolean logsEnabled;
+  private final AtomicBoolean statisticsEnabled;
+  private final ExecutorService asyncExecutorService;
+  private final FFmpegKitFlutterMethodResultHandler resultHandler;
+  private MethodChannel methodChannel;
+  private EventChannel eventChannel;
+  private Result lastInitiatedIntentResult;
+  private Context context;
+  private Activity activity;
+  private FlutterPluginBinding flutterPluginBinding;
+  private ActivityPluginBinding activityPluginBinding;
+  private EventChannel.EventSink eventSink;
 
-    // LOG CLASS
-    public static final String KEY_LOG_SESSION_ID = "sessionId";
-    public static final String KEY_LOG_LEVEL = "level";
-    public static final String KEY_LOG_MESSAGE = "message";
+  public FFmpegKitFlutterPlugin() {
+    this.logsEnabled = new AtomicBoolean(false);
+    this.statisticsEnabled = new AtomicBoolean(false);
+    this.asyncExecutorService = Executors.newFixedThreadPool(asyncConcurrencyLimit);
+    this.resultHandler = new FFmpegKitFlutterMethodResultHandler();
 
-    // STATISTICS CLASS
-    public static final String KEY_STATISTICS_SESSION_ID = "sessionId";
-    public static final String KEY_STATISTICS_VIDEO_FRAME_NUMBER = "videoFrameNumber";
-    public static final String KEY_STATISTICS_VIDEO_FPS = "videoFps";
-    public static final String KEY_STATISTICS_VIDEO_QUALITY = "videoQuality";
-    public static final String KEY_STATISTICS_SIZE = "size";
-    public static final String KEY_STATISTICS_TIME = "time";
-    public static final String KEY_STATISTICS_BITRATE = "bitrate";
-    public static final String KEY_STATISTICS_SPEED = "speed";
+    Log.d(LIBRARY_NAME, String.format("FFmpegKitFlutterPlugin created %s.", this));
+  }
 
-    // SESSION CLASS
-    public static final String KEY_SESSION_ID = "sessionId";
-    public static final String KEY_SESSION_CREATE_TIME = "createTime";
-    public static final String KEY_SESSION_START_TIME = "startTime";
-    public static final String KEY_SESSION_COMMAND = "command";
-    public static final String KEY_SESSION_TYPE = "type";
-    public static final String KEY_SESSION_MEDIA_INFORMATION = "mediaInformation";
+  @SuppressWarnings("deprecation")
+  public static void registerWith(final io.flutter.plugin.common.PluginRegistry.Registrar registrar) {
+    final Context context = (registrar.activity() != null) ? registrar.activity() : registrar.context();
+    if (context == null) {
+      Log.w(LIBRARY_NAME, "FFmpegKitFlutterPlugin can not be registered without a context.");
+      return;
+    }
+    FFmpegKitFlutterPlugin plugin = new FFmpegKitFlutterPlugin();
+    plugin.init(registrar.messenger(), context, registrar.activity(), registrar, null);
+  }
 
-    // SESSION TYPE
-    public static final int SESSION_TYPE_FFMPEG = 1;
-    public static final int SESSION_TYPE_FFPROBE = 2;
-    public static final int SESSION_TYPE_MEDIA_INFORMATION = 3;
+  protected static int toInt(final Level level) {
+    return (level == null) ? Level.AV_LOG_TRACE.getValue() : level.getValue();
+  }
 
-    // EVENTS
-    public static final String EVENT_LOG_CALLBACK_EVENT = "FFmpegKitLogCallbackEvent";
-    public static final String EVENT_STATISTICS_CALLBACK_EVENT = "FFmpegKitStatisticsCallbackEvent";
-    public static final String EVENT_COMPLETE_CALLBACK_EVENT = "FFmpegKitCompleteCallbackEvent";
-
-    // REQUEST CODES
-    public static final int READABLE_REQUEST_CODE = 10000;
-    public static final int WRITABLE_REQUEST_CODE = 20000;
-
-    // ARGUMENT NAMES
-    public static final String ARGUMENT_SESSION_ID = "sessionId";
-    public static final String ARGUMENT_WAIT_TIMEOUT = "waitTimeout";
-    public static final String ARGUMENT_ARGUMENTS = "arguments";
-    public static final String ARGUMENT_FFPROBE_JSON_OUTPUT = "ffprobeJsonOutput";
-    public static final String ARGUMENT_WRITABLE = "writable";
-
-    private static final int asyncConcurrencyLimit = 10;
-
-    private final AtomicBoolean logsEnabled;
-    private final AtomicBoolean statisticsEnabled;
-    private final ExecutorService asyncExecutorService;
-
-    private MethodChannel methodChannel;
-    private EventChannel eventChannel;
-    private Result lastInitiatedIntentResult;
-    private Context context;
-    private Activity activity;
-    private FlutterPluginBinding flutterPluginBinding;
-    private ActivityPluginBinding activityPluginBinding;
-
-    private EventChannel.EventSink eventSink;
-    private final FFmpegKitFlutterMethodResultHandler resultHandler;
-
-    public FFmpegKitFlutterPlugin() {
-        this.logsEnabled = new AtomicBoolean(false);
-        this.statisticsEnabled = new AtomicBoolean(false);
-        this.asyncExecutorService = Executors.newFixedThreadPool(asyncConcurrencyLimit);
-        this.resultHandler = new FFmpegKitFlutterMethodResultHandler();
-
-        Log.d(LIBRARY_NAME, String.format("FFmpegKitFlutterPlugin created %s.", this));
+  protected static Map<String, Object> toMap(final Session session) {
+    if (session == null) {
+      return null;
     }
 
-    @SuppressWarnings("deprecation")
-    public static void registerWith(final io.flutter.plugin.common.PluginRegistry.Registrar registrar) {
-        final Context context = (registrar.activity() != null) ? registrar.activity() : registrar.context();
-        if (context == null) {
-            Log.w(LIBRARY_NAME, "FFmpegKitFlutterPlugin can not be registered without a context.");
-            return;
+    final Map<String, Object> sessionMap = new HashMap<>();
+
+    sessionMap.put(KEY_SESSION_ID, session.getSessionId());
+    sessionMap.put(KEY_SESSION_CREATE_TIME, toLong(session.getCreateTime()));
+    sessionMap.put(KEY_SESSION_START_TIME, toLong(session.getStartTime()));
+    sessionMap.put(KEY_SESSION_COMMAND, session.getCommand());
+
+    if (session.isFFmpeg()) {
+      sessionMap.put(KEY_SESSION_TYPE, SESSION_TYPE_FFMPEG);
+    } else if (session.isFFprobe()) {
+      sessionMap.put(KEY_SESSION_TYPE, SESSION_TYPE_FFPROBE);
+    } else if (session.isMediaInformation()) {
+      final MediaInformationSession mediaInformationSession = (MediaInformationSession) session;
+      final MediaInformation mediaInformation = mediaInformationSession.getMediaInformation();
+      if (mediaInformation != null) {
+        sessionMap.put(KEY_SESSION_MEDIA_INFORMATION, toMap(mediaInformation));
+      }
+      sessionMap.put(KEY_SESSION_TYPE, SESSION_TYPE_MEDIA_INFORMATION);
+    }
+
+    return sessionMap;
+  }
+
+  protected static long toLong(final Date date) {
+    if (date != null) {
+      return date.getTime();
+    } else {
+      return 0;
+    }
+  }
+
+  protected static int toInt(final LogRedirectionStrategy logRedirectionStrategy) {
+    switch (logRedirectionStrategy) {
+      case ALWAYS_PRINT_LOGS:
+        return 0;
+      case PRINT_LOGS_WHEN_NO_CALLBACKS_DEFINED:
+        return 1;
+      case PRINT_LOGS_WHEN_GLOBAL_CALLBACK_NOT_DEFINED:
+        return 2;
+      case PRINT_LOGS_WHEN_SESSION_CALLBACK_NOT_DEFINED:
+        return 3;
+      case NEVER_PRINT_LOGS:
+      default:
+        return 4;
+    }
+  }
+
+  protected static LogRedirectionStrategy toLogRedirectionStrategy(final int value) {
+    switch (value) {
+      case 0:
+        return LogRedirectionStrategy.ALWAYS_PRINT_LOGS;
+      case 1:
+        return LogRedirectionStrategy.PRINT_LOGS_WHEN_NO_CALLBACKS_DEFINED;
+      case 2:
+        return LogRedirectionStrategy.PRINT_LOGS_WHEN_GLOBAL_CALLBACK_NOT_DEFINED;
+      case 3:
+        return LogRedirectionStrategy.PRINT_LOGS_WHEN_SESSION_CALLBACK_NOT_DEFINED;
+      case 4:
+      default:
+        return LogRedirectionStrategy.NEVER_PRINT_LOGS;
+    }
+  }
+
+  protected static SessionState toSessionState(final int value) {
+    switch (value) {
+      case 0:
+        return SessionState.CREATED;
+      case 1:
+        return SessionState.RUNNING;
+      case 2:
+        return SessionState.FAILED;
+      case 3:
+      default:
+        return SessionState.COMPLETED;
+    }
+  }
+
+  protected static Map<String, Object> toMap(final com.arthenica.ffmpegkit.Log log) {
+    final HashMap<String, Object> logMap = new HashMap<>();
+
+    logMap.put(KEY_LOG_SESSION_ID, log.getSessionId());
+    logMap.put(KEY_LOG_LEVEL, toInt(log.getLevel()));
+    logMap.put(KEY_LOG_MESSAGE, log.getMessage());
+
+    return logMap;
+  }
+
+  protected static Map<String, Object> toMap(final Statistics statistics) {
+    final HashMap<String, Object> statisticsMap = new HashMap<>();
+
+    if (statistics != null) {
+      statisticsMap.put(KEY_STATISTICS_SESSION_ID, statistics.getSessionId());
+      statisticsMap.put(KEY_STATISTICS_VIDEO_FRAME_NUMBER, statistics.getVideoFrameNumber());
+      statisticsMap.put(KEY_STATISTICS_VIDEO_FPS, statistics.getVideoFps());
+      statisticsMap.put(KEY_STATISTICS_VIDEO_QUALITY, statistics.getVideoQuality());
+      statisticsMap.put(KEY_STATISTICS_SIZE, (statistics.getSize() < Integer.MAX_VALUE) ? (int) statistics.getSize() : (int) (statistics.getSize() % Integer.MAX_VALUE));
+      statisticsMap.put(KEY_STATISTICS_TIME, statistics.getTime());
+      statisticsMap.put(KEY_STATISTICS_BITRATE, statistics.getBitrate());
+      statisticsMap.put(KEY_STATISTICS_SPEED, statistics.getSpeed());
+    }
+
+    return statisticsMap;
+  }
+
+  protected static Map<String, Object> toMap(final MediaInformation mediaInformation) {
+    if (mediaInformation != null) {
+      Map<String, Object> map = new HashMap<>();
+
+      if (mediaInformation.getAllProperties() != null) {
+        JSONObject allProperties = mediaInformation.getAllProperties();
+        if (allProperties != null) {
+          map = toMap(allProperties);
         }
-        FFmpegKitFlutterPlugin plugin = new FFmpegKitFlutterPlugin();
-        plugin.init(registrar.messenger(), context, registrar.activity(), registrar, null);
+      }
+
+      return map;
+    } else {
+      return null;
+    }
+  }
+
+  protected static Map<String, Object> toMap(final JSONObject jsonObject) {
+    final HashMap<String, Object> map = new HashMap<>();
+
+    if (jsonObject != null) {
+      Iterator<String> keys = jsonObject.keys();
+      while (keys.hasNext()) {
+        String key = keys.next();
+        Object value = jsonObject.opt(key);
+        if (value != null) {
+          if (value instanceof JSONArray) {
+            value = toList((JSONArray) value);
+          } else if (value instanceof JSONObject) {
+            value = toMap((JSONObject) value);
+          }
+          map.put(key, value);
+        }
+      }
     }
 
-    protected void registerGlobalCallbacks() {
-        FFmpegKitConfig.enableFFmpegSessionCompleteCallback(this::emitSession);
-        FFmpegKitConfig.enableFFprobeSessionCompleteCallback(this::emitSession);
-        FFmpegKitConfig.enableMediaInformationSessionCompleteCallback(this::emitSession);
+    return map;
+  }
 
-        FFmpegKitConfig.enableLogCallback(log -> {
-            if (logsEnabled.get()) {
-                emitLog(log);
-            }
-        });
+  protected static List<Object> toList(final JSONArray array) {
+    final List<Object> list = new ArrayList<>();
 
-        FFmpegKitConfig.enableStatisticsCallback(statistics -> {
-            if (statisticsEnabled.get()) {
-                emitStatistics(statistics);
-            }
-        });
+    for (int i = 0; i < array.length(); i++) {
+      Object value = array.opt(i);
+      if (value != null) {
+        if (value instanceof JSONArray) {
+          value = toList((JSONArray) value);
+        } else if (value instanceof JSONObject) {
+          value = toMap((JSONObject) value);
+        }
+        list.add(value);
+      }
     }
 
-    @Override
-    public void onAttachedToEngine(@NonNull final FlutterPluginBinding flutterPluginBinding) {
-        this.flutterPluginBinding = flutterPluginBinding;
+    return list;
+  }
+
+  protected static List<Map<String, Object>> toSessionMapList(final List<? extends Session> sessionList) {
+    final List<Map<String, Object>> list = new ArrayList<>();
+
+    for (int i = 0; i < sessionList.size(); i++) {
+      list.add(toMap(sessionList.get(i)));
     }
 
-    @Override
-    public void onDetachedFromEngine(@NonNull final FlutterPluginBinding binding) {
-        this.flutterPluginBinding = null;
+    return list;
+  }
+
+  protected static List<Map<String, Object>> toLogMapList(final List<com.arthenica.ffmpegkit.Log> logList) {
+    final List<Map<String, Object>> list = new ArrayList<>();
+
+    for (int i = 0; i < logList.size(); i++) {
+      list.add(toMap(logList.get(i)));
     }
 
-    @Override
-    public void onAttachedToActivity(@NonNull ActivityPluginBinding activityPluginBinding) {
-        Log.d(LIBRARY_NAME, String.format("FFmpegKitFlutterPlugin %s attached to activity %s.", this, activityPluginBinding.getActivity()));
-        init(flutterPluginBinding.getBinaryMessenger(), flutterPluginBinding.getApplicationContext(), activityPluginBinding.getActivity(), null, activityPluginBinding);
+    return list;
+  }
+
+  protected static List<Map<String, Object>> toStatisticsMapList(final List<com.arthenica.ffmpegkit.Statistics> statisticsList) {
+    final List<Map<String, Object>> list = new ArrayList<>();
+
+    for (int i = 0; i < statisticsList.size(); i++) {
+      list.add(toMap(statisticsList.get(i)));
     }
 
-    @Override
-    public void onDetachedFromActivityForConfigChanges() {
-        onDetachedFromActivity();
-    }
+    return list;
+  }
 
-    @Override
-    public void onReattachedToActivityForConfigChanges(@NonNull ActivityPluginBinding activityPluginBinding) {
-        onAttachedToActivity(activityPluginBinding);
-    }
+  protected static boolean isValidPositiveNumber(final Integer value) {
+    return (value != null) && (value >= 0);
+  }
 
-    @Override
-    public void onDetachedFromActivity() {
-        uninit();
-        Log.d(LIBRARY_NAME, "FFmpegKitFlutterPlugin detached from activity.");
-    }
+  // AbstractSession
 
-    @Override
-    public void onListen(final Object o, final EventChannel.EventSink eventSink) {
-        this.eventSink = eventSink;
-        Log.d(LIBRARY_NAME, String.format("FFmpegKitFlutterPlugin %s started listening to events on %s.", this, eventSink));
-    }
+  protected void registerGlobalCallbacks() {
+    FFmpegKitConfig.enableFFmpegSessionCompleteCallback(this::emitSession);
+    FFmpegKitConfig.enableFFprobeSessionCompleteCallback(this::emitSession);
+    FFmpegKitConfig.enableMediaInformationSessionCompleteCallback(this::emitSession);
 
-    @Override
-    public void onCancel(final Object o) {
-        this.eventSink = null;
-        Log.d(LIBRARY_NAME, "FFmpegKitFlutterPlugin stopped listening to events.");
-    }
+    FFmpegKitConfig.enableLogCallback(log -> {
+      if (logsEnabled.get()) {
+        emitLog(log);
+      }
+    });
 
-    @Override
-    public boolean onActivityResult(final int requestCode, final int resultCode, final Intent data) {
-        Log.d(LIBRARY_NAME, String.format("selectDocument completed with requestCode: %d, resultCode: %d, data: %s.", requestCode, resultCode, data == null ? null : data.toString()));
+    FFmpegKitConfig.enableStatisticsCallback(statistics -> {
+      if (statisticsEnabled.get()) {
+        emitStatistics(statistics);
+      }
+    });
+  }
 
-        if (requestCode == READABLE_REQUEST_CODE || requestCode == WRITABLE_REQUEST_CODE) {
-            if (resultCode == Activity.RESULT_OK) {
-                if (data == null) {
-                    resultHandler.successAsync(lastInitiatedIntentResult, null);
-                } else {
-                    final Uri uri = data.getData();
-                    resultHandler.successAsync(lastInitiatedIntentResult, uri == null ? null : uri.toString());
-                }
-            } else {
-                resultHandler.errorAsync(lastInitiatedIntentResult, "SELECT_CANCELLED", String.valueOf(resultCode));
-            }
+  @Override
+  public void onAttachedToEngine(@NonNull final FlutterPluginBinding flutterPluginBinding) {
+    this.flutterPluginBinding = flutterPluginBinding;
+  }
 
-            return true;
+  @Override
+  public void onDetachedFromEngine(@NonNull final FlutterPluginBinding binding) {
+    this.flutterPluginBinding = null;
+  }
+
+  @Override
+  public void onAttachedToActivity(@NonNull ActivityPluginBinding activityPluginBinding) {
+    Log.d(LIBRARY_NAME, String.format("FFmpegKitFlutterPlugin %s attached to activity %s.", this, activityPluginBinding.getActivity()));
+    init(flutterPluginBinding.getBinaryMessenger(), flutterPluginBinding.getApplicationContext(), activityPluginBinding.getActivity(), null, activityPluginBinding);
+  }
+
+  @Override
+  public void onDetachedFromActivityForConfigChanges() {
+    onDetachedFromActivity();
+  }
+
+  @Override
+  public void onReattachedToActivityForConfigChanges(@NonNull ActivityPluginBinding activityPluginBinding) {
+    onAttachedToActivity(activityPluginBinding);
+  }
+
+  @Override
+  public void onDetachedFromActivity() {
+    uninit();
+    Log.d(LIBRARY_NAME, "FFmpegKitFlutterPlugin detached from activity.");
+  }
+
+  @Override
+  public void onListen(final Object o, final EventChannel.EventSink eventSink) {
+    this.eventSink = eventSink;
+    Log.d(LIBRARY_NAME, String.format("FFmpegKitFlutterPlugin %s started listening to events on %s.", this, eventSink));
+  }
+
+  @Override
+  public void onCancel(final Object o) {
+    this.eventSink = null;
+    Log.d(LIBRARY_NAME, "FFmpegKitFlutterPlugin stopped listening to events.");
+  }
+
+  // ArchDetect
+
+  @Override
+  public boolean onActivityResult(final int requestCode, final int resultCode, final Intent data) {
+    Log.d(LIBRARY_NAME, String.format("selectDocument completed with requestCode: %d, resultCode: %d, data: %s.", requestCode, resultCode, data == null ? null : data.toString()));
+
+    if (requestCode == READABLE_REQUEST_CODE || requestCode == WRITABLE_REQUEST_CODE) {
+      if (resultCode == Activity.RESULT_OK) {
+        if (data == null) {
+          resultHandler.successAsync(lastInitiatedIntentResult, null);
         } else {
-            Log.i(LIBRARY_NAME, String.format("FFmpegKitFlutterPlugin ignored unsupported activity result for requestCode: %d.", requestCode));
-            return false;
+          final Uri uri = data.getData();
+          resultHandler.successAsync(lastInitiatedIntentResult, uri == null ? null : uri.toString());
         }
+      } else {
+        resultHandler.errorAsync(lastInitiatedIntentResult, "SELECT_CANCELLED", String.valueOf(resultCode));
+      }
+
+      return true;
+    } else {
+      Log.i(LIBRARY_NAME, String.format("FFmpegKitFlutterPlugin ignored unsupported activity result for requestCode: %d.", requestCode));
+      return false;
     }
+  }
 
-    @Override
-    public void onMethodCall(@NonNull MethodCall call, @NonNull Result result) {
-        final Integer sessionId = call.argument(ARGUMENT_SESSION_ID);
-        final Integer waitTimeout = call.argument(ARGUMENT_WAIT_TIMEOUT);
-        final List<String> arguments = call.argument(ARGUMENT_ARGUMENTS);
-        final String ffprobeJsonOutput = call.argument(ARGUMENT_FFPROBE_JSON_OUTPUT);
-        final Boolean writable = call.argument(ARGUMENT_WRITABLE);
+  // FFmpegSession
 
-        switch (call.method) {
-            case "abstractSessionGetEndTime":
-                if (sessionId != null) {
-                    abstractSessionGetEndTime(sessionId, result);
-                } else {
-                    resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
-                }
-                break;
-            case "abstractSessionGetDuration":
-                if (sessionId != null) {
-                    abstractSessionGetDuration(sessionId, result);
-                } else {
-                    resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
-                }
-                break;
-            case "abstractSessionGetAllLogs":
-                if (sessionId != null) {
-                    abstractSessionGetAllLogs(sessionId, waitTimeout, result);
-                } else {
-                    resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
-                }
-                break;
-            case "abstractSessionGetLogs":
-                if (sessionId != null) {
-                    abstractSessionGetLogs(sessionId, result);
-                } else {
-                    resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
-                }
-                break;
-            case "abstractSessionGetAllLogsAsString":
-                if (sessionId != null) {
-                    abstractSessionGetAllLogsAsString(sessionId, waitTimeout, result);
-                } else {
-                    resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
-                }
-                break;
-            case "abstractSessionGetState":
-                if (sessionId != null) {
-                    abstractSessionGetState(sessionId, result);
-                } else {
-                    resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
-                }
-                break;
-            case "abstractSessionGetReturnCode":
-                if (sessionId != null) {
-                    abstractSessionGetReturnCode(sessionId, result);
-                } else {
-                    resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
-                }
-                break;
-            case "abstractSessionGetFailStackTrace":
-                if (sessionId != null) {
-                    abstractSessionGetFailStackTrace(sessionId, result);
-                } else {
-                    resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
-                }
-                break;
-            case "thereAreAsynchronousMessagesInTransmit":
-                if (sessionId != null) {
-                    abstractSessionThereAreAsynchronousMessagesInTransmit(sessionId, result);
-                } else {
-                    resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
-                }
-                break;
-            case "getArch":
-                getArch(result);
-                break;
-            case "ffmpegSession":
-                if (arguments != null) {
-                    ffmpegSession(arguments, result);
-                } else {
-                    resultHandler.errorAsync(result, "INVALID_ARGUMENTS", "Invalid arguments array.");
-                }
-                break;
-            case "ffmpegSessionGetAllStatistics":
-                if (sessionId != null) {
-                    ffmpegSessionGetAllStatistics(sessionId, waitTimeout, result);
-                } else {
-                    resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
-                }
-                break;
-            case "ffmpegSessionGetStatistics":
-                if (sessionId != null) {
-                    ffmpegSessionGetStatistics(sessionId, result);
-                } else {
-                    resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
-                }
-                break;
-            case "ffprobeSession":
-                if (arguments != null) {
-                    ffprobeSession(arguments, result);
-                } else {
-                    resultHandler.errorAsync(result, "INVALID_ARGUMENTS", "Invalid arguments array.");
-                }
-                break;
-            case "mediaInformationSession":
-                if (arguments != null) {
-                    mediaInformationSession(arguments, result);
-                } else {
-                    resultHandler.errorAsync(result, "INVALID_ARGUMENTS", "Invalid arguments array.");
-                }
-                break;
-            case "getMediaInformation":
-                if (sessionId != null) {
-                    getMediaInformation(sessionId, result);
-                } else {
-                    resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
-                }
-                break;
-            case "mediaInformationJsonParserFrom":
-                if (ffprobeJsonOutput != null) {
-                    mediaInformationJsonParserFrom(ffprobeJsonOutput, result);
-                } else {
-                    resultHandler.errorAsync(result, "INVALID_FFPROBE_JSON_OUTPUT", "Invalid ffprobe json output.");
-                }
-                break;
-            case "mediaInformationJsonParserFromWithError":
-                if (ffprobeJsonOutput != null) {
-                    mediaInformationJsonParserFromWithError(ffprobeJsonOutput, result);
-                } else {
-                    resultHandler.errorAsync(result, "INVALID_FFPROBE_JSON_OUTPUT", "Invalid ffprobe json output.");
-                }
-                break;
-            case "enableRedirection":
-                enableRedirection(result);
-                break;
-            case "disableRedirection":
-                disableRedirection(result);
-                break;
-            case "enableLogs":
-                enableLogs(result);
-                break;
-            case "disableLogs":
-                disableLogs(result);
-                break;
-            case "enableStatistics":
-                enableStatistics(result);
-                break;
-            case "disableStatistics":
-                disableStatistics(result);
-                break;
-            case "setFontconfigConfigurationPath":
-                final String path = call.argument("path");
-                if (path != null) {
-                    setFontconfigConfigurationPath(path, result);
-                } else {
-                    resultHandler.errorAsync(result, "INVALID_PATH", "Invalid path.");
-                }
-                break;
-            case "setFontDirectory": {
-                final String fontDirectory = call.argument("fontDirectory");
-                final Map<String, String> fontNameMap = call.argument("fontNameMap");
-                if (fontDirectory != null) {
-                    setFontDirectory(fontDirectory, fontNameMap, result);
-                } else {
-                    resultHandler.errorAsync(result, "INVALID_FONT_DIRECTORY", "Invalid font directory.");
-                }
-                break;
-            }
-            case "setFontDirectoryList": {
-                final List<String> fontDirectoryList = call.argument("fontDirectoryList");
-                final Map<String, String> fontNameMap = call.argument("fontNameMap");
-                if (fontDirectoryList != null) {
-                    setFontDirectoryList(fontDirectoryList, fontNameMap, result);
-                } else {
-                    resultHandler.errorAsync(result, "INVALID_FONT_DIRECTORY_LIST", "Invalid font directory list.");
-                }
-                break;
-            }
-            case "registerNewFFmpegPipe":
-                registerNewFFmpegPipe(result);
-                break;
-            case "closeFFmpegPipe":
-                final String ffmpegPipePath = call.argument("ffmpegPipePath");
-                if (ffmpegPipePath != null) {
-                    closeFFmpegPipe(ffmpegPipePath, result);
-                } else {
-                    resultHandler.errorAsync(result, "INVALID_PIPE_PATH", "Invalid ffmpeg pipe path.");
-                }
-                break;
-            case "getFFmpegVersion":
-                getFFmpegVersion(result);
-                break;
-            case "isLTSBuild":
-                isLTSBuild(result);
-                break;
-            case "getBuildDate":
-                getBuildDate(result);
-                break;
-            case "setEnvironmentVariable":
-                final String variableName = call.argument("variableName");
-                final String variableValue = call.argument("variableValue");
+  @Override
+  public void onMethodCall(@NonNull MethodCall call, @NonNull Result result) {
+    final Integer sessionId = call.argument(ARGUMENT_SESSION_ID);
+    final Integer waitTimeout = call.argument(ARGUMENT_WAIT_TIMEOUT);
+    final List<String> arguments = call.argument(ARGUMENT_ARGUMENTS);
+    final String ffprobeJsonOutput = call.argument(ARGUMENT_FFPROBE_JSON_OUTPUT);
+    final Boolean writable = call.argument(ARGUMENT_WRITABLE);
 
-                if (variableName != null && variableValue != null) {
-                    setEnvironmentVariable(variableName, variableValue, result);
-                } else if (variableValue != null) {
-                    resultHandler.errorAsync(result, "INVALID_NAME", "Invalid environment variable name.");
-                } else {
-                    resultHandler.errorAsync(result, "INVALID_VALUE", "Invalid environment variable value.");
-                }
-                break;
-            case "ignoreSignal":
-                final Integer signal = call.argument("signal");
-                if (signal != null) {
-                    ignoreSignal(signal, result);
-                } else {
-                    resultHandler.errorAsync(result, "INVALID_SIGNAL", "Invalid signal value.");
-                }
-                break;
-            case "ffmpegSessionExecute":
-                if (sessionId != null) {
-                    ffmpegSessionExecute(sessionId, result);
-                } else {
-                    resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
-                }
-                break;
-            case "ffprobeSessionExecute":
-                if (sessionId != null) {
-                    ffprobeSessionExecute(sessionId, result);
-                } else {
-                    resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
-                }
-                break;
-            case "mediaInformationSessionExecute":
-                if (sessionId != null) {
-                    mediaInformationSessionExecute(sessionId, waitTimeout, result);
-                } else {
-                    resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
-                }
-                break;
-            case "asyncFFmpegSessionExecute":
-                if (sessionId != null) {
-                    asyncFFmpegSessionExecute(sessionId, result);
-                } else {
-                    resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
-                }
-                break;
-            case "asyncFFprobeSessionExecute":
-                if (sessionId != null) {
-                    asyncFFprobeSessionExecute(sessionId, result);
-                } else {
-                    resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
-                }
-                break;
-            case "asyncMediaInformationSessionExecute":
-                if (sessionId != null) {
-                    asyncMediaInformationSessionExecute(sessionId, waitTimeout, result);
-                } else {
-                    resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
-                }
-                break;
-            case "getLogLevel":
-                getLogLevel(result);
-                break;
-            case "setLogLevel":
-                final Integer level = call.argument("level");
-                if (level != null) {
-                    setLogLevel(level, result);
-                } else {
-                    resultHandler.errorAsync(result, "INVALID_LEVEL", "Invalid level value.");
-                }
-                break;
-            case "getSessionHistorySize":
-                getSessionHistorySize(result);
-                break;
-            case "setSessionHistorySize":
-                final Integer sessionHistorySize = call.argument("sessionHistorySize");
-                if (sessionHistorySize != null) {
-                    setSessionHistorySize(sessionHistorySize, result);
-                } else {
-                    resultHandler.errorAsync(result, "INVALID_SIZE", "Invalid session history size value.");
-                }
-                break;
-            case "getSession":
-                if (sessionId != null) {
-                    getSession(sessionId, result);
-                } else {
-                    resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
-                }
-                break;
-            case "getLastSession":
-                getLastSession(result);
-                break;
-            case "getLastCompletedSession":
-                getLastCompletedSession(result);
-                break;
-            case "getSessions":
-                getSessions(result);
-                break;
-            case "clearSessions":
-                clearSessions(result);
-                break;
-            case "getSessionsByState":
-                final Integer state = call.argument("state");
-                if (state != null) {
-                    getSessionsByState(state, result);
-                } else {
-                    resultHandler.errorAsync(result, "INVALID_SESSION_STATE", "Invalid session state value.");
-                }
-                break;
-            case "getLogRedirectionStrategy":
-                getLogRedirectionStrategy(result);
-                break;
-            case "setLogRedirectionStrategy":
-                final Integer strategy = call.argument("strategy");
-                if (strategy != null) {
-                    setLogRedirectionStrategy(strategy, result);
-                } else {
-                    resultHandler.errorAsync(result, "INVALID_LOG_REDIRECTION_STRATEGY", "Invalid log redirection strategy value.");
-                }
-                break;
-            case "messagesInTransmit":
-                if (sessionId != null) {
-                    messagesInTransmit(sessionId, result);
-                } else {
-                    resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
-                }
-                break;
-            case "getPlatform":
-                getPlatform(result);
-                break;
-            case "writeToPipe":
-                final String input = call.argument("input");
-                final String pipe = call.argument("pipe");
-                if (input != null && pipe != null) {
-                    writeToPipe(input, pipe, result);
-                } else if (pipe != null) {
-                    resultHandler.errorAsync(result, "INVALID_INPUT", "Invalid input value.");
-                } else {
-                    resultHandler.errorAsync(result, "INVALID_PIPE", "Invalid pipe value.");
-                }
-                break;
-            case "selectDocument":
-                final String title = call.argument("title");
-                final String type = call.argument("type");
-                final List<String> extraTypes = call.argument("extraTypes");
-                final String[] extraTypesArray;
-                if (extraTypes != null) {
-                    extraTypesArray = extraTypes.toArray(new String[0]);
-                } else {
-                    extraTypesArray = null;
-                }
-                if (writable != null) {
-                    selectDocument(writable, title, type, extraTypesArray, result);
-                } else {
-                    resultHandler.errorAsync(result, "INVALID_WRITABLE", "Invalid writable value.");
-                }
-                break;
-            case "getSafParameter":
-                final String uri = call.argument("uri");
-                final String openMode = call.argument("openMode");
-                if (uri != null && openMode != null) {
-                    getSafParameter(uri, openMode, result);
-                } else if (uri != null) {
-                    resultHandler.errorAsync(result, "INVALID_OPEN_MODE", "Invalid openMode value.");
-                } else {
-                    resultHandler.errorAsync(result, "INVALID_URI", "Invalid uri value.");
-                }
-                break;
-            case "cancel":
-                cancel(result);
-                break;
-            case "cancelSession":
-                if (sessionId != null) {
-                    cancelSession(sessionId, result);
-                } else {
-                    resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
-                }
-                break;
-            case "getFFmpegSessions":
-                getFFmpegSessions(result);
-                break;
-            case "getFFprobeSessions":
-                getFFprobeSessions(result);
-                break;
-            case "getMediaInformationSessions":
-                getMediaInformationSessions(result);
-                break;
-            case "getPackageName":
-                getPackageName(result);
-                break;
-            case "getExternalLibraries":
-                getExternalLibraries(result);
-                break;
-            default:
-                resultHandler.notImplementedAsync(result);
-                break;
-        }
-    }
-
-    @SuppressWarnings("deprecation")
-    protected void init(final BinaryMessenger messenger, final Context context, final Activity activity, final io.flutter.plugin.common.PluginRegistry.Registrar registrar, final ActivityPluginBinding activityBinding) {
-        registerGlobalCallbacks();
-
-        if (methodChannel == null) {
-            methodChannel = new MethodChannel(messenger, METHOD_CHANNEL);
-            methodChannel.setMethodCallHandler(this);
+    switch (call.method) {
+      case "abstractSessionGetEndTime":
+        if (sessionId != null) {
+          abstractSessionGetEndTime(sessionId, result);
         } else {
-            Log.i(LIBRARY_NAME, "FFmpegKitFlutterPlugin method channel was already initialised.");
+          resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
         }
-
-        if (eventChannel == null) {
-            eventChannel = new EventChannel(messenger, EVENT_CHANNEL);
-            eventChannel.setStreamHandler(this);
+        break;
+      case "abstractSessionGetDuration":
+        if (sessionId != null) {
+          abstractSessionGetDuration(sessionId, result);
         } else {
-            Log.i(LIBRARY_NAME, "FFmpegKitFlutterPlugin event channel was already initialised.");
+          resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
         }
-
-        this.context = context;
-        this.activity = activity;
-
-        if (registrar != null) {
-            // V1 embedding setup for activity listeners.
-            registrar.addActivityResultListener(this);
+        break;
+      case "abstractSessionGetAllLogs":
+        if (sessionId != null) {
+          abstractSessionGetAllLogs(sessionId, waitTimeout, result);
         } else {
-            // V2 embedding setup for activity listeners.
-            activityBinding.addActivityResultListener(this);
+          resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
         }
-
-        Log.d(LIBRARY_NAME, String.format("FFmpegKitFlutterPlugin %s initialised with context %s and activity %s.", this, context, activity));
-    }
-
-    protected void uninit() {
-        uninitMethodChannel();
-        uninitEventChannel();
-
-        if (this.activityPluginBinding != null) {
-            this.activityPluginBinding.removeActivityResultListener(this);
-        }
-
-        this.context = null;
-        this.activity = null;
-        this.activityPluginBinding = null;
-
-        Log.d(LIBRARY_NAME, "FFmpegKitFlutterPlugin uninitialized.");
-    }
-
-    protected void uninitMethodChannel() {
-        if (methodChannel == null) {
-            Log.i(LIBRARY_NAME, "FFmpegKitFlutterPlugin method channel was already uninitialised.");
-            return;
-        }
-
-        methodChannel.setMethodCallHandler(null);
-        methodChannel = null;
-    }
-
-    protected void uninitEventChannel() {
-        if (eventChannel == null) {
-            Log.i(LIBRARY_NAME, "FFmpegKitFlutterPlugin event channel was already uninitialised.");
-            return;
-        }
-
-        eventChannel.setStreamHandler(null);
-        eventChannel = null;
-    }
-
-    // AbstractSession
-
-    protected void abstractSessionGetEndTime(@NonNull final Integer sessionId, @NonNull final Result result) {
-        final Session session = FFmpegKitConfig.getSession(sessionId.longValue());
-        if (session == null) {
-            resultHandler.errorAsync(result, "SESSION_NOT_FOUND", "Session not found.");
+        break;
+      case "abstractSessionGetLogs":
+        if (sessionId != null) {
+          abstractSessionGetLogs(sessionId, result);
         } else {
-            final Date endTime = session.getEndTime();
-            if (endTime == null) {
-                resultHandler.successAsync(result, null);
-            } else {
-                resultHandler.successAsync(result, endTime.getTime());
-            }
+          resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
         }
-    }
-
-    protected void abstractSessionGetDuration(@NonNull final Integer sessionId, @NonNull final Result result) {
-        final Session session = FFmpegKitConfig.getSession(sessionId.longValue());
-        if (session == null) {
-            resultHandler.errorAsync(result, "SESSION_NOT_FOUND", "Session not found.");
+        break;
+      case "abstractSessionGetAllLogsAsString":
+        if (sessionId != null) {
+          abstractSessionGetAllLogsAsString(sessionId, waitTimeout, result);
         } else {
-            resultHandler.successAsync(result, session.getDuration());
+          resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
         }
-    }
-
-    protected void abstractSessionGetAllLogs(@NonNull final Integer sessionId, @Nullable final Integer waitTimeout, @NonNull final Result result) {
-        final Session session = FFmpegKitConfig.getSession(sessionId.longValue());
-        if (session == null) {
-            resultHandler.errorAsync(result, "SESSION_NOT_FOUND", "Session not found.");
+        break;
+      case "abstractSessionGetState":
+        if (sessionId != null) {
+          abstractSessionGetState(sessionId, result);
         } else {
-            final int timeout;
-            if (isValidPositiveNumber(waitTimeout)) {
-                timeout = waitTimeout;
-            } else {
-                timeout = AbstractSession.DEFAULT_TIMEOUT_FOR_ASYNCHRONOUS_MESSAGES_IN_TRANSMIT;
-            }
-            final List<com.arthenica.ffmpegkit.Log> allLogs = session.getAllLogs(timeout);
-            resultHandler.successAsync(result, toLogMapList(allLogs));
+          resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
         }
-    }
-
-    protected void abstractSessionGetLogs(@NonNull final Integer sessionId, @NonNull final Result result) {
-        final Session session = FFmpegKitConfig.getSession(sessionId.longValue());
-        if (session == null) {
-            resultHandler.errorAsync(result, "SESSION_NOT_FOUND", "Session not found.");
+        break;
+      case "abstractSessionGetReturnCode":
+        if (sessionId != null) {
+          abstractSessionGetReturnCode(sessionId, result);
         } else {
-            final List<com.arthenica.ffmpegkit.Log> allLogs = session.getLogs();
-            resultHandler.successAsync(result, toLogMapList(allLogs));
+          resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
         }
-    }
-
-    protected void abstractSessionGetAllLogsAsString(@NonNull final Integer sessionId, @Nullable final Integer waitTimeout, @NonNull final Result result) {
-        final Session session = FFmpegKitConfig.getSession(sessionId.longValue());
-        if (session == null) {
-            resultHandler.errorAsync(result, "SESSION_NOT_FOUND", "Session not found.");
+        break;
+      case "abstractSessionGetFailStackTrace":
+        if (sessionId != null) {
+          abstractSessionGetFailStackTrace(sessionId, result);
         } else {
-            final int timeout;
-            if (isValidPositiveNumber(waitTimeout)) {
-                timeout = waitTimeout;
-            } else {
-                timeout = AbstractSession.DEFAULT_TIMEOUT_FOR_ASYNCHRONOUS_MESSAGES_IN_TRANSMIT;
-            }
-            final String allLogsAsString = session.getAllLogsAsString(timeout);
-            resultHandler.successAsync(result, allLogsAsString);
+          resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
         }
-    }
-
-    protected void abstractSessionGetState(@NonNull final Integer sessionId, @NonNull final Result result) {
-        final Session session = FFmpegKitConfig.getSession(sessionId.longValue());
-        if (session == null) {
-            resultHandler.errorAsync(result, "SESSION_NOT_FOUND", "Session not found.");
+        break;
+      case "thereAreAsynchronousMessagesInTransmit":
+        if (sessionId != null) {
+          abstractSessionThereAreAsynchronousMessagesInTransmit(sessionId, result);
         } else {
-            resultHandler.successAsync(result, session.getState().ordinal());
+          resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
         }
-    }
-
-    protected void abstractSessionGetReturnCode(@NonNull final Integer sessionId, @NonNull final Result result) {
-        final Session session = FFmpegKitConfig.getSession(sessionId.longValue());
-        if (session == null) {
-            resultHandler.errorAsync(result, "SESSION_NOT_FOUND", "Session not found.");
+        break;
+      case "getArch":
+        getArch(result);
+        break;
+      case "ffmpegSession":
+        if (arguments != null) {
+          ffmpegSession(arguments, result);
         } else {
-            final ReturnCode returnCode = session.getReturnCode();
-            if (returnCode == null) {
-                resultHandler.successAsync(result, null);
-            } else {
-                resultHandler.successAsync(result, returnCode.getValue());
-            }
+          resultHandler.errorAsync(result, "INVALID_ARGUMENTS", "Invalid arguments array.");
         }
-    }
-
-    protected void abstractSessionGetFailStackTrace(@NonNull final Integer sessionId, @NonNull final Result result) {
-        final Session session = FFmpegKitConfig.getSession(sessionId.longValue());
-        if (session == null) {
-            resultHandler.errorAsync(result, "SESSION_NOT_FOUND", "Session not found.");
+        break;
+      case "ffmpegSessionGetAllStatistics":
+        if (sessionId != null) {
+          ffmpegSessionGetAllStatistics(sessionId, waitTimeout, result);
         } else {
-            resultHandler.successAsync(result, session.getFailStackTrace());
+          resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
         }
-    }
-
-    protected void abstractSessionThereAreAsynchronousMessagesInTransmit(@NonNull final Integer sessionId, @NonNull final Result result) {
-        final Session session = FFmpegKitConfig.getSession(sessionId.longValue());
-        if (session == null) {
-            resultHandler.errorAsync(result, "SESSION_NOT_FOUND", "Session not found.");
+        break;
+      case "ffmpegSessionGetStatistics":
+        if (sessionId != null) {
+          ffmpegSessionGetStatistics(sessionId, result);
         } else {
-            resultHandler.successAsync(result, session.thereAreAsynchronousMessagesInTransmit());
+          resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
         }
-    }
-
-    // ArchDetect
-
-    protected void getArch(@NonNull final Result result) {
-        resultHandler.successAsync(result, AbiDetect.getAbi());
-    }
-
-    // FFmpegSession
-
-    protected void ffmpegSession(@NonNull final List<String> arguments, @NonNull final Result result) {
-        final FFmpegSession session = FFmpegSession.create(arguments.toArray(new String[0]), null, null, null, LogRedirectionStrategy.NEVER_PRINT_LOGS);
-        resultHandler.successAsync(result, toMap(session));
-    }
-
-    protected void ffmpegSessionGetAllStatistics(@NonNull final Integer sessionId, @Nullable final Integer waitTimeout, @NonNull final Result result) {
-        final Session session = FFmpegKitConfig.getSession(sessionId.longValue());
-        if (session == null) {
-            resultHandler.errorAsync(result, "SESSION_NOT_FOUND", "Session not found.");
+        break;
+      case "ffprobeSession":
+        if (arguments != null) {
+          ffprobeSession(arguments, result);
         } else {
-            if (session.isFFmpeg()) {
-                final int timeout;
-                if (isValidPositiveNumber(waitTimeout)) {
-                    timeout = waitTimeout;
-                } else {
-                    timeout = AbstractSession.DEFAULT_TIMEOUT_FOR_ASYNCHRONOUS_MESSAGES_IN_TRANSMIT;
-                }
-                final List<Statistics> allStatistics = ((FFmpegSession) session).getAllStatistics(timeout);
-                resultHandler.successAsync(result, toStatisticsMapList(allStatistics));
-            } else {
-                resultHandler.errorAsync(result, "NOT_FFMPEG_SESSION", "A session is found but it does not have the correct type.");
-            }
+          resultHandler.errorAsync(result, "INVALID_ARGUMENTS", "Invalid arguments array.");
         }
-    }
-
-    protected void ffmpegSessionGetStatistics(@NonNull final Integer sessionId, @NonNull final Result result) {
-        final Session session = FFmpegKitConfig.getSession(sessionId.longValue());
-        if (session == null) {
-            resultHandler.errorAsync(result, "SESSION_NOT_FOUND", "Session not found.");
+        break;
+      case "mediaInformationSession":
+        if (arguments != null) {
+          mediaInformationSession(arguments, result);
         } else {
-            if (session.isFFmpeg()) {
-                final List<Statistics> statistics = ((FFmpegSession) session).getStatistics();
-                resultHandler.successAsync(result, toStatisticsMapList(statistics));
-            } else {
-                resultHandler.errorAsync(result, "NOT_FFMPEG_SESSION", "A session is found but it does not have the correct type.");
-            }
+          resultHandler.errorAsync(result, "INVALID_ARGUMENTS", "Invalid arguments array.");
         }
-    }
-
-    // FFprobeSession
-
-    protected void ffprobeSession(@NonNull final List<String> arguments, @NonNull final Result result) {
-        final FFprobeSession session = FFprobeSession.create(arguments.toArray(new String[0]), null, null, LogRedirectionStrategy.NEVER_PRINT_LOGS);
-        resultHandler.successAsync(result, toMap(session));
-    }
-
-    // MediaInformationSession
-
-    protected void mediaInformationSession(@NonNull final List<String> arguments, @NonNull final Result result) {
-        final MediaInformationSession session = MediaInformationSession.create(arguments.toArray(new String[0]), null, null);
-        resultHandler.successAsync(result, toMap(session));
-    }
-
-    protected void getMediaInformation(@NonNull final Integer sessionId, @NonNull final Result result) {
-        final Session session = FFmpegKitConfig.getSession(sessionId.longValue());
-        if (session == null) {
-            resultHandler.errorAsync(result, "SESSION_NOT_FOUND", "Session not found.");
+        break;
+      case "getMediaInformation":
+        if (sessionId != null) {
+          getMediaInformation(sessionId, result);
         } else {
-            if (session.isMediaInformation()) {
-                final MediaInformationSession mediaInformationSession = (MediaInformationSession) session;
-                final MediaInformation mediaInformation = mediaInformationSession.getMediaInformation();
-                resultHandler.successAsync(result, toMap(mediaInformation));
-            } else {
-                resultHandler.errorAsync(result, "NOT_MEDIA_INFORMATION_SESSION", "A session is found but it does not have the correct type.");
-            }
+          resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
         }
-    }
-
-    // MediaInformationJsonParser
-
-    protected void mediaInformationJsonParserFrom(@NonNull final String ffprobeJsonOutput, @NonNull final Result result) {
-        try {
-            final MediaInformation mediaInformation = MediaInformationJsonParser.fromWithError(ffprobeJsonOutput);
-            resultHandler.successAsync(result, toMap(mediaInformation));
-        } catch (final JSONException e) {
-            Log.i(LIBRARY_NAME, "Parsing MediaInformation failed.", e);
-            resultHandler.successAsync(result, null);
-        }
-    }
-
-    protected void mediaInformationJsonParserFromWithError(@NonNull final String ffprobeJsonOutput, @NonNull final Result result) {
-        try {
-            final MediaInformation mediaInformation = MediaInformationJsonParser.fromWithError(ffprobeJsonOutput);
-            resultHandler.successAsync(result, toMap(mediaInformation));
-        } catch (JSONException e) {
-            Log.i(LIBRARY_NAME, "Parsing MediaInformation failed.", e);
-            resultHandler.errorAsync(result, "PARSE_FAILED", "Parsing MediaInformation failed with JSON error.");
-        }
-    }
-
-    // FFmpegKitConfig
-
-    protected void enableRedirection(@NonNull final Result result) {
-        enableLogs();
-        enableStatistics();
-        FFmpegKitConfig.enableRedirection();
-
-        resultHandler.successAsync(result, null);
-    }
-
-    protected void disableRedirection(@NonNull final Result result) {
-        FFmpegKitConfig.disableRedirection();
-
-        resultHandler.successAsync(result, null);
-    }
-
-    protected void enableLogs(@NonNull final Result result) {
-        enableLogs();
-
-        resultHandler.successAsync(result, null);
-    }
-
-    protected void disableLogs(@NonNull final Result result) {
-        disableLogs();
-
-        resultHandler.successAsync(result, null);
-    }
-
-    protected void enableStatistics(@NonNull final Result result) {
-        enableStatistics();
-
-        resultHandler.successAsync(result, null);
-    }
-
-    protected void disableStatistics(@NonNull final Result result) {
-        disableStatistics();
-
-        resultHandler.successAsync(result, null);
-    }
-
-    protected void setFontconfigConfigurationPath(@NonNull final String path, @NonNull final Result result) {
-        FFmpegKitConfig.setFontconfigConfigurationPath(path);
-
-        resultHandler.successAsync(result, null);
-    }
-
-    protected void setFontDirectory(@NonNull final String fontDirectoryPath, @Nullable final Map<String, String> fontNameMapping, @NonNull final Result result) {
-        if (context != null) {
-            FFmpegKitConfig.setFontDirectory(context, fontDirectoryPath, fontNameMapping);
-            resultHandler.successAsync(result, null);
+        break;
+      case "mediaInformationJsonParserFrom":
+        if (ffprobeJsonOutput != null) {
+          mediaInformationJsonParserFrom(ffprobeJsonOutput, result);
         } else {
-            Log.w(LIBRARY_NAME, "Cannot setFontDirectory. Context is null.");
-            resultHandler.errorAsync(result, "INVALID_CONTEXT", "Context is null.");
+          resultHandler.errorAsync(result, "INVALID_FFPROBE_JSON_OUTPUT", "Invalid ffprobe json output.");
         }
-    }
-
-    protected void setFontDirectoryList(@NonNull final List<String> fontDirectoryList, @Nullable final Map<String, String> fontNameMapping, @NonNull final Result result) {
-        if (context != null) {
-            FFmpegKitConfig.setFontDirectoryList(context, fontDirectoryList, fontNameMapping);
-            resultHandler.successAsync(result, null);
+        break;
+      case "mediaInformationJsonParserFromWithError":
+        if (ffprobeJsonOutput != null) {
+          mediaInformationJsonParserFromWithError(ffprobeJsonOutput, result);
         } else {
-            Log.w(LIBRARY_NAME, "Cannot setFontDirectoryList. Context is null.");
-            resultHandler.errorAsync(result, "INVALID_CONTEXT", "Context is null.");
+          resultHandler.errorAsync(result, "INVALID_FFPROBE_JSON_OUTPUT", "Invalid ffprobe json output.");
         }
-    }
-
-    protected void registerNewFFmpegPipe(@NonNull final Result result) {
-        if (context != null) {
-            resultHandler.successAsync(result, FFmpegKitConfig.registerNewFFmpegPipe(context));
+        break;
+      case "enableRedirection":
+        enableRedirection(result);
+        break;
+      case "disableRedirection":
+        disableRedirection(result);
+        break;
+      case "enableLogs":
+        enableLogs(result);
+        break;
+      case "disableLogs":
+        disableLogs(result);
+        break;
+      case "enableStatistics":
+        enableStatistics(result);
+        break;
+      case "disableStatistics":
+        disableStatistics(result);
+        break;
+      case "setFontconfigConfigurationPath":
+        final String path = call.argument("path");
+        if (path != null) {
+          setFontconfigConfigurationPath(path, result);
         } else {
-            Log.w(LIBRARY_NAME, "Cannot registerNewFFmpegPipe. Context is null.");
-            resultHandler.errorAsync(result, "INVALID_CONTEXT", "Context is null.");
+          resultHandler.errorAsync(result, "INVALID_PATH", "Invalid path.");
         }
-    }
-
-    protected void closeFFmpegPipe(@NonNull final String ffmpegPipePath, @NonNull final Result result) {
-        FFmpegKitConfig.closeFFmpegPipe(ffmpegPipePath);
-
-        resultHandler.successAsync(result, null);
-    }
-
-    protected void getFFmpegVersion(@NonNull final Result result) {
-        resultHandler.successAsync(result, FFmpegKitConfig.getFFmpegVersion());
-    }
-
-    protected void isLTSBuild(@NonNull final Result result) {
-        resultHandler.successAsync(result, FFmpegKitConfig.isLTSBuild());
-    }
-
-    protected void getBuildDate(@NonNull final Result result) {
-        resultHandler.successAsync(result, FFmpegKitConfig.getBuildDate());
-    }
-
-    protected void setEnvironmentVariable(@NonNull final String variableName, @NonNull final String variableValue, @NonNull final Result result) {
-        FFmpegKitConfig.setEnvironmentVariable(variableName, variableValue);
-
-        resultHandler.successAsync(result, null);
-    }
-
-    protected void ignoreSignal(@NonNull final Integer signalIndex, @NonNull final Result result) {
-        Signal signal = null;
-
-        if (signalIndex == Signal.SIGINT.ordinal()) {
-            signal = Signal.SIGINT;
-        } else if (signalIndex == Signal.SIGQUIT.ordinal()) {
-            signal = Signal.SIGQUIT;
-        } else if (signalIndex == Signal.SIGPIPE.ordinal()) {
-            signal = Signal.SIGPIPE;
-        } else if (signalIndex == Signal.SIGTERM.ordinal()) {
-            signal = Signal.SIGTERM;
-        } else if (signalIndex == Signal.SIGXCPU.ordinal()) {
-            signal = Signal.SIGXCPU;
+        break;
+      case "setFontDirectory": {
+        final String fontDirectory = call.argument("fontDirectory");
+        final Map<String, String> fontNameMap = call.argument("fontNameMap");
+        if (fontDirectory != null) {
+          setFontDirectory(fontDirectory, fontNameMap, result);
+        } else {
+          resultHandler.errorAsync(result, "INVALID_FONT_DIRECTORY", "Invalid font directory.");
         }
+        break;
+      }
+      case "setFontDirectoryList": {
+        final List<String> fontDirectoryList = call.argument("fontDirectoryList");
+        final Map<String, String> fontNameMap = call.argument("fontNameMap");
+        if (fontDirectoryList != null) {
+          setFontDirectoryList(fontDirectoryList, fontNameMap, result);
+        } else {
+          resultHandler.errorAsync(result, "INVALID_FONT_DIRECTORY_LIST", "Invalid font directory list.");
+        }
+        break;
+      }
+      case "registerNewFFmpegPipe":
+        registerNewFFmpegPipe(result);
+        break;
+      case "closeFFmpegPipe":
+        final String ffmpegPipePath = call.argument("ffmpegPipePath");
+        if (ffmpegPipePath != null) {
+          closeFFmpegPipe(ffmpegPipePath, result);
+        } else {
+          resultHandler.errorAsync(result, "INVALID_PIPE_PATH", "Invalid ffmpeg pipe path.");
+        }
+        break;
+      case "getFFmpegVersion":
+        getFFmpegVersion(result);
+        break;
+      case "isLTSBuild":
+        isLTSBuild(result);
+        break;
+      case "getBuildDate":
+        getBuildDate(result);
+        break;
+      case "setEnvironmentVariable":
+        final String variableName = call.argument("variableName");
+        final String variableValue = call.argument("variableValue");
 
+        if (variableName != null && variableValue != null) {
+          setEnvironmentVariable(variableName, variableValue, result);
+        } else if (variableValue != null) {
+          resultHandler.errorAsync(result, "INVALID_NAME", "Invalid environment variable name.");
+        } else {
+          resultHandler.errorAsync(result, "INVALID_VALUE", "Invalid environment variable value.");
+        }
+        break;
+      case "ignoreSignal":
+        final Integer signal = call.argument("signal");
         if (signal != null) {
-            FFmpegKitConfig.ignoreSignal(signal);
-
-            resultHandler.successAsync(result, null);
+          ignoreSignal(signal, result);
         } else {
-            resultHandler.errorAsync(result, "INVALID_SIGNAL", "Signal value not supported.");
+          resultHandler.errorAsync(result, "INVALID_SIGNAL", "Invalid signal value.");
         }
-    }
-
-    protected void ffmpegSessionExecute(@NonNull final Integer sessionId, @NonNull final Result result) {
-        final Session session = FFmpegKitConfig.getSession(sessionId.longValue());
-        if (session == null) {
-            resultHandler.errorAsync(result, "SESSION_NOT_FOUND", "Session not found.");
+        break;
+      case "ffmpegSessionExecute":
+        if (sessionId != null) {
+          ffmpegSessionExecute(sessionId, result);
         } else {
-            if (session.isFFmpeg()) {
-                final FFmpegSessionExecuteTask ffmpegSessionExecuteTask = new FFmpegSessionExecuteTask((FFmpegSession) session, resultHandler, result);
-                asyncExecutorService.submit(ffmpegSessionExecuteTask);
-            } else {
-                resultHandler.errorAsync(result, "NOT_FFMPEG_SESSION", "A session is found but it does not have the correct type.");
-            }
+          resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
         }
-    }
-
-    protected void ffprobeSessionExecute(@NonNull final Integer sessionId, @NonNull final Result result) {
-        final Session session = FFmpegKitConfig.getSession(sessionId.longValue());
-        if (session == null) {
-            resultHandler.errorAsync(result, "SESSION_NOT_FOUND", "Session not found.");
+        break;
+      case "ffprobeSessionExecute":
+        if (sessionId != null) {
+          ffprobeSessionExecute(sessionId, result);
         } else {
-            if (session.isFFprobe()) {
-                final FFprobeSessionExecuteTask ffprobeSessionExecuteTask = new FFprobeSessionExecuteTask((FFprobeSession) session, resultHandler, result);
-                asyncExecutorService.submit(ffprobeSessionExecuteTask);
-            } else {
-                resultHandler.errorAsync(result, "NOT_FFPROBE_SESSION", "A session is found but it does not have the correct type.");
-            }
+          resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
         }
-    }
-
-    protected void mediaInformationSessionExecute(@NonNull final Integer sessionId, @Nullable final Integer waitTimeout, @NonNull final Result result) {
-        final Session session = FFmpegKitConfig.getSession(sessionId.longValue());
-        if (session == null) {
-            resultHandler.errorAsync(result, "SESSION_NOT_FOUND", "Session not found.");
+        break;
+      case "mediaInformationSessionExecute":
+        if (sessionId != null) {
+          mediaInformationSessionExecute(sessionId, waitTimeout, result);
         } else {
-            if (session.isMediaInformation()) {
-                final int timeout;
-                if (isValidPositiveNumber(waitTimeout)) {
-                    timeout = waitTimeout;
-                } else {
-                    timeout = AbstractSession.DEFAULT_TIMEOUT_FOR_ASYNCHRONOUS_MESSAGES_IN_TRANSMIT;
-                }
-                final MediaInformationSessionExecuteTask mediaInformationSessionExecuteTask = new MediaInformationSessionExecuteTask((MediaInformationSession) session, timeout, resultHandler, result);
-                asyncExecutorService.submit(mediaInformationSessionExecuteTask);
-            } else {
-                resultHandler.errorAsync(result, "NOT_MEDIA_INFORMATION_SESSION", "A session is found but it does not have the correct type.");
-            }
+          resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
         }
-    }
-
-    protected void asyncFFmpegSessionExecute(@NonNull final Integer sessionId, @NonNull final Result result) {
-        final Session session = FFmpegKitConfig.getSession(sessionId.longValue());
-        if (session == null) {
-            resultHandler.errorAsync(result, "SESSION_NOT_FOUND", "Session not found.");
+        break;
+      case "asyncFFmpegSessionExecute":
+        if (sessionId != null) {
+          asyncFFmpegSessionExecute(sessionId, result);
         } else {
-            if (session.isFFmpeg()) {
-                FFmpegKitConfig.asyncFFmpegExecute((FFmpegSession) session);
-                resultHandler.successAsync(result, null);
-            } else {
-                resultHandler.errorAsync(result, "NOT_FFMPEG_SESSION", "A session is found but it does not have the correct type.");
-            }
+          resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
         }
-    }
-
-    protected void asyncFFprobeSessionExecute(@NonNull final Integer sessionId, @NonNull final Result result) {
-        final Session session = FFmpegKitConfig.getSession(sessionId.longValue());
-        if (session == null) {
-            resultHandler.errorAsync(result, "SESSION_NOT_FOUND", "Session not found.");
+        break;
+      case "asyncFFprobeSessionExecute":
+        if (sessionId != null) {
+          asyncFFprobeSessionExecute(sessionId, result);
         } else {
-            if (session.isFFprobe()) {
-                FFmpegKitConfig.asyncFFprobeExecute((FFprobeSession) session);
-                resultHandler.successAsync(result, null);
-            } else {
-                resultHandler.errorAsync(result, "NOT_FFPROBE_SESSION", "A session is found but it does not have the correct type.");
-            }
+          resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
         }
-    }
-
-    protected void asyncMediaInformationSessionExecute(@NonNull final Integer sessionId, @Nullable final Integer waitTimeout, @NonNull final Result result) {
-        final Session session = FFmpegKitConfig.getSession(sessionId.longValue());
-        if (session == null) {
-            resultHandler.errorAsync(result, "SESSION_NOT_FOUND", "Session not found.");
+        break;
+      case "asyncMediaInformationSessionExecute":
+        if (sessionId != null) {
+          asyncMediaInformationSessionExecute(sessionId, waitTimeout, result);
         } else {
-            if (session.isMediaInformation()) {
-                final int timeout;
-                if (isValidPositiveNumber(waitTimeout)) {
-                    timeout = waitTimeout;
-                } else {
-                    timeout = AbstractSession.DEFAULT_TIMEOUT_FOR_ASYNCHRONOUS_MESSAGES_IN_TRANSMIT;
-                }
-                FFmpegKitConfig.asyncGetMediaInformationExecute((MediaInformationSession) session, timeout);
-                resultHandler.successAsync(result, null);
-            } else {
-                resultHandler.errorAsync(result, "NOT_MEDIA_INFORMATION_SESSION", "A session is found but it does not have the correct type.");
-            }
+          resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
         }
-    }
-
-    protected void getLogLevel(@NonNull final Result result) {
-        resultHandler.successAsync(result, toInt(FFmpegKitConfig.getLogLevel()));
-    }
-
-    protected void setLogLevel(@NonNull final Integer level, @NonNull final Result result) {
-        FFmpegKitConfig.setLogLevel(Level.from(level));
-        resultHandler.successAsync(result, null);
-    }
-
-    protected void getSessionHistorySize(@NonNull final Result result) {
-        resultHandler.successAsync(result, FFmpegKitConfig.getSessionHistorySize());
-    }
-
-    protected void setSessionHistorySize(@NonNull final Integer sessionHistorySize, @NonNull final Result result) {
-        FFmpegKitConfig.setSessionHistorySize(sessionHistorySize);
-        resultHandler.successAsync(result, null);
-    }
-
-    protected void getSession(@NonNull final Integer sessionId, @NonNull final Result result) {
-        final Session session = FFmpegKitConfig.getSession(sessionId.longValue());
-        if (session == null) {
-            resultHandler.errorAsync(result, "SESSION_NOT_FOUND", "Session not found.");
+        break;
+      case "getLogLevel":
+        getLogLevel(result);
+        break;
+      case "setLogLevel":
+        final Integer level = call.argument("level");
+        if (level != null) {
+          setLogLevel(level, result);
         } else {
-            resultHandler.successAsync(result, toMap(session));
+          resultHandler.errorAsync(result, "INVALID_LEVEL", "Invalid level value.");
         }
-    }
-
-    protected void getLastSession(@NonNull final Result result) {
-        final Session session = FFmpegKitConfig.getLastSession();
-        resultHandler.successAsync(result, toMap(session));
-    }
-
-    protected void getLastCompletedSession(@NonNull final Result result) {
-        final Session session = FFmpegKitConfig.getLastCompletedSession();
-        resultHandler.successAsync(result, toMap(session));
-    }
-
-    protected void getSessions(@NonNull final Result result) {
-        resultHandler.successAsync(result, toSessionMapList(FFmpegKitConfig.getSessions()));
-    }
-
-    protected void clearSessions(@NonNull final Result result) {
-        FFmpegKitConfig.clearSessions();
-        resultHandler.successAsync(result, null);
-    }
-
-    protected void getSessionsByState(@NonNull final Integer sessionState, @NonNull final Result result) {
-        resultHandler.successAsync(result, toSessionMapList(FFmpegKitConfig.getSessionsByState(toSessionState(sessionState))));
-    }
-
-    protected void getLogRedirectionStrategy(@NonNull final Result result) {
-        resultHandler.successAsync(result, toInt(FFmpegKitConfig.getLogRedirectionStrategy()));
-    }
-
-    protected void setLogRedirectionStrategy(@NonNull final Integer logRedirectionStrategy, @NonNull final Result result) {
-        FFmpegKitConfig.setLogRedirectionStrategy(toLogRedirectionStrategy(logRedirectionStrategy));
-        resultHandler.successAsync(result, null);
-    }
-
-    protected void messagesInTransmit(@NonNull final Integer sessionId, @NonNull final Result result) {
-        resultHandler.successAsync(result, FFmpegKitConfig.messagesInTransmit(sessionId.longValue()));
-    }
-
-    protected void getPlatform(@NonNull final Result result) {
-        resultHandler.successAsync(result, PLATFORM_NAME);
-    }
-
-    protected void writeToPipe(@NonNull final String inputPath, @NonNull final String namedPipePath, @NonNull final Result result) {
-        final WriteToPipeTask asyncTask = new WriteToPipeTask(inputPath, namedPipePath, resultHandler, result);
-        asyncExecutorService.submit(asyncTask);
-    }
-
-    protected void selectDocument(@NonNull final Boolean writable, @Nullable final String title, @Nullable final String type, @Nullable final String[] extraTypes, @NonNull final Result result) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT) {
-            android.util.Log.i(LIBRARY_NAME, String.format(Locale.getDefault(), "selectDocument is not supported on API Level %d", Build.VERSION.SDK_INT));
-            resultHandler.errorAsync(result, "SELECT_FAILED", String.format(Locale.getDefault(), "selectDocument is not supported on API Level %d", Build.VERSION.SDK_INT));
-            return;
-        }
-
-        final Intent intent;
-        if (writable) {
-            intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
-            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+        break;
+      case "getSessionHistorySize":
+        getSessionHistorySize(result);
+        break;
+      case "setSessionHistorySize":
+        final Integer sessionHistorySize = call.argument("sessionHistorySize");
+        if (sessionHistorySize != null) {
+          setSessionHistorySize(sessionHistorySize, result);
         } else {
-            intent = new Intent(Intent.ACTION_GET_CONTENT);
-            intent.addCategory(Intent.CATEGORY_OPENABLE);
-            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+          resultHandler.errorAsync(result, "INVALID_SIZE", "Invalid session history size value.");
         }
-
-        if (type != null) {
-            intent.setType(type);
+        break;
+      case "getSession":
+        if (sessionId != null) {
+          getSession(sessionId, result);
         } else {
-            intent.setType("*/*");
+          resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
         }
-
-        if (title != null) {
-            intent.putExtra(Intent.EXTRA_TITLE, title);
+        break;
+      case "getLastSession":
+        getLastSession(result);
+        break;
+      case "getLastCompletedSession":
+        getLastCompletedSession(result);
+        break;
+      case "getSessions":
+        getSessions(result);
+        break;
+      case "clearSessions":
+        clearSessions(result);
+        break;
+      case "getSessionsByState":
+        final Integer state = call.argument("state");
+        if (state != null) {
+          getSessionsByState(state, result);
+        } else {
+          resultHandler.errorAsync(result, "INVALID_SESSION_STATE", "Invalid session state value.");
         }
-
+        break;
+      case "getLogRedirectionStrategy":
+        getLogRedirectionStrategy(result);
+        break;
+      case "setLogRedirectionStrategy":
+        final Integer strategy = call.argument("strategy");
+        if (strategy != null) {
+          setLogRedirectionStrategy(strategy, result);
+        } else {
+          resultHandler.errorAsync(result, "INVALID_LOG_REDIRECTION_STRATEGY", "Invalid log redirection strategy value.");
+        }
+        break;
+      case "messagesInTransmit":
+        if (sessionId != null) {
+          messagesInTransmit(sessionId, result);
+        } else {
+          resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
+        }
+        break;
+      case "getPlatform":
+        getPlatform(result);
+        break;
+      case "writeToPipe":
+        final String input = call.argument("input");
+        final String pipe = call.argument("pipe");
+        if (input != null && pipe != null) {
+          writeToPipe(input, pipe, result);
+        } else if (pipe != null) {
+          resultHandler.errorAsync(result, "INVALID_INPUT", "Invalid input value.");
+        } else {
+          resultHandler.errorAsync(result, "INVALID_PIPE", "Invalid pipe value.");
+        }
+        break;
+      case "selectDocument":
+        final String title = call.argument("title");
+        final String type = call.argument("type");
+        final List<String> extraTypes = call.argument("extraTypes");
+        final String[] extraTypesArray;
         if (extraTypes != null) {
-            intent.putExtra(Intent.EXTRA_MIME_TYPES, extraTypes);
-        }
-
-        if (context != null) {
-            if (activity != null) {
-                try {
-                    lastInitiatedIntentResult = result;
-                    activity.startActivityForResult(intent, writable ? WRITABLE_REQUEST_CODE : READABLE_REQUEST_CODE);
-                } catch (final Exception e) {
-                    Log.i(LIBRARY_NAME, String.format("Failed to selectDocument using parameters writable: %s, type: %s, title: %s and extra types: %s!", writable, type, title, extraTypes == null ? null : Arrays.toString(extraTypes)), e);
-                    resultHandler.errorAsync(result, "SELECT_FAILED", e.getMessage());
-                }
-            } else {
-                Log.w(LIBRARY_NAME, String.format("Cannot selectDocument using parameters writable: %s, type: %s, title: %s and extra types: %s. Activity is null.", writable, type, title, extraTypes == null ? null : Arrays.toString(extraTypes)));
-                resultHandler.errorAsync(result, "INVALID_ACTIVITY", "Activity is null.");
-            }
+          extraTypesArray = extraTypes.toArray(new String[0]);
         } else {
-            Log.w(LIBRARY_NAME, String.format("Cannot selectDocument using parameters writable: %s, type: %s, title: %s and extra types: %s. Context is null.", writable, type, title, extraTypes == null ? null : Arrays.toString(extraTypes)));
-            resultHandler.errorAsync(result, "INVALID_CONTEXT", "Context is null.");
+          extraTypesArray = null;
         }
+        if (writable != null) {
+          selectDocument(writable, title, type, extraTypesArray, result);
+        } else {
+          resultHandler.errorAsync(result, "INVALID_WRITABLE", "Invalid writable value.");
+        }
+        break;
+      case "getSafParameter":
+        final String uri = call.argument("uri");
+        final String openMode = call.argument("openMode");
+        if (uri != null && openMode != null) {
+          getSafParameter(uri, openMode, result);
+        } else if (uri != null) {
+          resultHandler.errorAsync(result, "INVALID_OPEN_MODE", "Invalid openMode value.");
+        } else {
+          resultHandler.errorAsync(result, "INVALID_URI", "Invalid uri value.");
+        }
+        break;
+      case "cancel":
+        cancel(result);
+        break;
+      case "cancelSession":
+        if (sessionId != null) {
+          cancelSession(sessionId, result);
+        } else {
+          resultHandler.errorAsync(result, "INVALID_SESSION", "Invalid session id.");
+        }
+        break;
+      case "getFFmpegSessions":
+        getFFmpegSessions(result);
+        break;
+      case "getFFprobeSessions":
+        getFFprobeSessions(result);
+        break;
+      case "getMediaInformationSessions":
+        getMediaInformationSessions(result);
+        break;
+      case "getPackageName":
+        getPackageName(result);
+        break;
+      case "getExternalLibraries":
+        getExternalLibraries(result);
+        break;
+      default:
+        resultHandler.notImplementedAsync(result);
+        break;
+    }
+  }
+
+  @SuppressWarnings("deprecation")
+  protected void init(final BinaryMessenger messenger, final Context context, final Activity activity, final io.flutter.plugin.common.PluginRegistry.Registrar registrar, final ActivityPluginBinding activityBinding) {
+    registerGlobalCallbacks();
+
+    if (methodChannel == null) {
+      methodChannel = new MethodChannel(messenger, METHOD_CHANNEL);
+      methodChannel.setMethodCallHandler(this);
+    } else {
+      Log.i(LIBRARY_NAME, "FFmpegKitFlutterPlugin method channel was already initialised.");
     }
 
-    protected void getSafParameter(@NonNull final String uriString, @NonNull final String openMode, @NonNull final Result result) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT) {
-            android.util.Log.i(LIBRARY_NAME, String.format(Locale.getDefault(), "getSafParameter is not supported on API Level %d", Build.VERSION.SDK_INT));
-            resultHandler.errorAsync(result, "GET_SAF_PARAMETER_FAILED", String.format(Locale.getDefault(), "getSafParameter is not supported on API Level %d", Build.VERSION.SDK_INT));
-            return;
-        }
-
-        if (context != null) {
-            final Uri uri = Uri.parse(uriString);
-            if (uri == null) {
-                Log.w(LIBRARY_NAME, String.format("Cannot getSafParameter using parameters uriString: %s, openMode: %s. Uri string cannot be parsed.", uriString, openMode));
-                resultHandler.errorAsync(result, "GET_SAF_PARAMETER_FAILED", "Uri string cannot be parsed.");
-            } else {
-                final String safParameter = FFmpegKitConfig.getSafParameter(context, uri, openMode);
-
-                Log.d(LIBRARY_NAME, String.format("getSafParameter using parameters uriString: %s, openMode: %s completed with saf parameter: %s.", uriString, openMode, safParameter));
-
-                resultHandler.successAsync(result, safParameter);
-            }
-        } else {
-            Log.w(LIBRARY_NAME, String.format("Cannot getSafParameter using parameters uriString: %s, openMode: %s. Context is null.", uriString, openMode));
-            resultHandler.errorAsync(result, "INVALID_CONTEXT", "Context is null.");
-        }
+    if (eventChannel == null) {
+      eventChannel = new EventChannel(messenger, EVENT_CHANNEL);
+      eventChannel.setStreamHandler(this);
+    } else {
+      Log.i(LIBRARY_NAME, "FFmpegKitFlutterPlugin event channel was already initialised.");
     }
 
-    // FFmpegKit
+    this.context = context;
+    this.activity = activity;
 
-    protected void cancel(@NonNull final Result result) {
-        FFmpegKit.cancel();
+    if (registrar != null) {
+      // V1 embedding setup for activity listeners.
+      registrar.addActivityResultListener(this);
+    } else {
+      // V2 embedding setup for activity listeners.
+      activityBinding.addActivityResultListener(this);
+    }
+
+    Log.d(LIBRARY_NAME, String.format("FFmpegKitFlutterPlugin %s initialised with context %s and activity %s.", this, context, activity));
+  }
+
+  protected void uninit() {
+    uninitMethodChannel();
+    uninitEventChannel();
+
+    if (this.activityPluginBinding != null) {
+      this.activityPluginBinding.removeActivityResultListener(this);
+    }
+
+    this.context = null;
+    this.activity = null;
+    this.activityPluginBinding = null;
+
+    Log.d(LIBRARY_NAME, "FFmpegKitFlutterPlugin uninitialized.");
+  }
+
+  // FFprobeSession
+
+  protected void uninitMethodChannel() {
+    if (methodChannel == null) {
+      Log.i(LIBRARY_NAME, "FFmpegKitFlutterPlugin method channel was already uninitialised.");
+      return;
+    }
+
+    methodChannel.setMethodCallHandler(null);
+    methodChannel = null;
+  }
+
+  // MediaInformationSession
+
+  protected void uninitEventChannel() {
+    if (eventChannel == null) {
+      Log.i(LIBRARY_NAME, "FFmpegKitFlutterPlugin event channel was already uninitialised.");
+      return;
+    }
+
+    eventChannel.setStreamHandler(null);
+    eventChannel = null;
+  }
+
+  protected void abstractSessionGetEndTime(@NonNull final Integer sessionId, @NonNull final Result result) {
+    final Session session = FFmpegKitConfig.getSession(sessionId.longValue());
+    if (session == null) {
+      resultHandler.errorAsync(result, "SESSION_NOT_FOUND", "Session not found.");
+    } else {
+      final Date endTime = session.getEndTime();
+      if (endTime == null) {
         resultHandler.successAsync(result, null);
+      } else {
+        resultHandler.successAsync(result, endTime.getTime());
+      }
     }
+  }
 
-    protected void cancelSession(@NonNull final Integer sessionId, @NonNull final Result result) {
-        FFmpegKit.cancel(sessionId.longValue());
+  // MediaInformationJsonParser
+
+  protected void abstractSessionGetDuration(@NonNull final Integer sessionId, @NonNull final Result result) {
+    final Session session = FFmpegKitConfig.getSession(sessionId.longValue());
+    if (session == null) {
+      resultHandler.errorAsync(result, "SESSION_NOT_FOUND", "Session not found.");
+    } else {
+      resultHandler.successAsync(result, session.getDuration());
+    }
+  }
+
+  protected void abstractSessionGetAllLogs(@NonNull final Integer sessionId, @Nullable final Integer waitTimeout, @NonNull final Result result) {
+    final Session session = FFmpegKitConfig.getSession(sessionId.longValue());
+    if (session == null) {
+      resultHandler.errorAsync(result, "SESSION_NOT_FOUND", "Session not found.");
+    } else {
+      final int timeout;
+      if (isValidPositiveNumber(waitTimeout)) {
+        timeout = waitTimeout;
+      } else {
+        timeout = AbstractSession.DEFAULT_TIMEOUT_FOR_ASYNCHRONOUS_MESSAGES_IN_TRANSMIT;
+      }
+      final List<com.arthenica.ffmpegkit.Log> allLogs = session.getAllLogs(timeout);
+      resultHandler.successAsync(result, toLogMapList(allLogs));
+    }
+  }
+
+  // FFmpegKitConfig
+
+  protected void abstractSessionGetLogs(@NonNull final Integer sessionId, @NonNull final Result result) {
+    final Session session = FFmpegKitConfig.getSession(sessionId.longValue());
+    if (session == null) {
+      resultHandler.errorAsync(result, "SESSION_NOT_FOUND", "Session not found.");
+    } else {
+      final List<com.arthenica.ffmpegkit.Log> allLogs = session.getLogs();
+      resultHandler.successAsync(result, toLogMapList(allLogs));
+    }
+  }
+
+  protected void abstractSessionGetAllLogsAsString(@NonNull final Integer sessionId, @Nullable final Integer waitTimeout, @NonNull final Result result) {
+    final Session session = FFmpegKitConfig.getSession(sessionId.longValue());
+    if (session == null) {
+      resultHandler.errorAsync(result, "SESSION_NOT_FOUND", "Session not found.");
+    } else {
+      final int timeout;
+      if (isValidPositiveNumber(waitTimeout)) {
+        timeout = waitTimeout;
+      } else {
+        timeout = AbstractSession.DEFAULT_TIMEOUT_FOR_ASYNCHRONOUS_MESSAGES_IN_TRANSMIT;
+      }
+      final String allLogsAsString = session.getAllLogsAsString(timeout);
+      resultHandler.successAsync(result, allLogsAsString);
+    }
+  }
+
+  protected void abstractSessionGetState(@NonNull final Integer sessionId, @NonNull final Result result) {
+    final Session session = FFmpegKitConfig.getSession(sessionId.longValue());
+    if (session == null) {
+      resultHandler.errorAsync(result, "SESSION_NOT_FOUND", "Session not found.");
+    } else {
+      resultHandler.successAsync(result, session.getState().ordinal());
+    }
+  }
+
+  protected void abstractSessionGetReturnCode(@NonNull final Integer sessionId, @NonNull final Result result) {
+    final Session session = FFmpegKitConfig.getSession(sessionId.longValue());
+    if (session == null) {
+      resultHandler.errorAsync(result, "SESSION_NOT_FOUND", "Session not found.");
+    } else {
+      final ReturnCode returnCode = session.getReturnCode();
+      if (returnCode == null) {
         resultHandler.successAsync(result, null);
+      } else {
+        resultHandler.successAsync(result, returnCode.getValue());
+      }
     }
+  }
 
-    protected void getFFmpegSessions(@NonNull final Result result) {
-        resultHandler.successAsync(result, toSessionMapList(FFmpegKit.listSessions()));
+  protected void abstractSessionGetFailStackTrace(@NonNull final Integer sessionId, @NonNull final Result result) {
+    final Session session = FFmpegKitConfig.getSession(sessionId.longValue());
+    if (session == null) {
+      resultHandler.errorAsync(result, "SESSION_NOT_FOUND", "Session not found.");
+    } else {
+      resultHandler.successAsync(result, session.getFailStackTrace());
     }
+  }
 
-    // FFprobeKit
-
-    protected void getFFprobeSessions(@NonNull final Result result) {
-        resultHandler.successAsync(result, toSessionMapList(FFprobeKit.listFFprobeSessions()));
+  protected void abstractSessionThereAreAsynchronousMessagesInTransmit(@NonNull final Integer sessionId, @NonNull final Result result) {
+    final Session session = FFmpegKitConfig.getSession(sessionId.longValue());
+    if (session == null) {
+      resultHandler.errorAsync(result, "SESSION_NOT_FOUND", "Session not found.");
+    } else {
+      resultHandler.successAsync(result, session.thereAreAsynchronousMessagesInTransmit());
     }
+  }
 
-    protected void getMediaInformationSessions(@NonNull final Result result) {
-        resultHandler.successAsync(result, toSessionMapList(FFprobeKit.listMediaInformationSessions()));
-    }
+  protected void getArch(@NonNull final Result result) {
+    resultHandler.successAsync(result, AbiDetect.getAbi());
+  }
 
-    // Packages
+  protected void ffmpegSession(@NonNull final List<String> arguments, @NonNull final Result result) {
+    final FFmpegSession session = FFmpegSession.create(arguments.toArray(new String[0]), null, null, null, LogRedirectionStrategy.NEVER_PRINT_LOGS);
+    resultHandler.successAsync(result, toMap(session));
+  }
 
-    protected void getPackageName(@NonNull final Result result) {
-        resultHandler.successAsync(result, Packages.getPackageName());
-    }
-
-    protected void getExternalLibraries(@NonNull final Result result) {
-        resultHandler.successAsync(result, Packages.getExternalLibraries());
-    }
-
-    protected void enableLogs() {
-        logsEnabled.compareAndSet(false, true);
-    }
-
-    protected void disableLogs() {
-        logsEnabled.compareAndSet(true, false);
-    }
-
-    protected void enableStatistics() {
-        statisticsEnabled.compareAndSet(false, true);
-    }
-
-    protected void disableStatistics() {
-        statisticsEnabled.compareAndSet(true, false);
-    }
-
-    protected static int toInt(final Level level) {
-        return (level == null) ? Level.AV_LOG_TRACE.getValue() : level.getValue();
-    }
-
-    protected static Map<String, Object> toMap(final Session session) {
-        if (session == null) {
-            return null;
-        }
-
-        final Map<String, Object> sessionMap = new HashMap<>();
-
-        sessionMap.put(KEY_SESSION_ID, session.getSessionId());
-        sessionMap.put(KEY_SESSION_CREATE_TIME, toLong(session.getCreateTime()));
-        sessionMap.put(KEY_SESSION_START_TIME, toLong(session.getStartTime()));
-        sessionMap.put(KEY_SESSION_COMMAND, session.getCommand());
-
-        if (session.isFFmpeg()) {
-            sessionMap.put(KEY_SESSION_TYPE, SESSION_TYPE_FFMPEG);
-        } else if (session.isFFprobe()) {
-            sessionMap.put(KEY_SESSION_TYPE, SESSION_TYPE_FFPROBE);
-        } else if (session.isMediaInformation()) {
-            final MediaInformationSession mediaInformationSession = (MediaInformationSession) session;
-            final MediaInformation mediaInformation = mediaInformationSession.getMediaInformation();
-            if (mediaInformation != null) {
-                sessionMap.put(KEY_SESSION_MEDIA_INFORMATION, toMap(mediaInformation));
-            }
-            sessionMap.put(KEY_SESSION_TYPE, SESSION_TYPE_MEDIA_INFORMATION);
-        }
-
-        return sessionMap;
-    }
-
-    protected static long toLong(final Date date) {
-        if (date != null) {
-            return date.getTime();
+  protected void ffmpegSessionGetAllStatistics(@NonNull final Integer sessionId, @Nullable final Integer waitTimeout, @NonNull final Result result) {
+    final Session session = FFmpegKitConfig.getSession(sessionId.longValue());
+    if (session == null) {
+      resultHandler.errorAsync(result, "SESSION_NOT_FOUND", "Session not found.");
+    } else {
+      if (session.isFFmpeg()) {
+        final int timeout;
+        if (isValidPositiveNumber(waitTimeout)) {
+          timeout = waitTimeout;
         } else {
-            return 0;
+          timeout = AbstractSession.DEFAULT_TIMEOUT_FOR_ASYNCHRONOUS_MESSAGES_IN_TRANSMIT;
         }
+        final List<Statistics> allStatistics = ((FFmpegSession) session).getAllStatistics(timeout);
+        resultHandler.successAsync(result, toStatisticsMapList(allStatistics));
+      } else {
+        resultHandler.errorAsync(result, "NOT_FFMPEG_SESSION", "A session is found but it does not have the correct type.");
+      }
+    }
+  }
+
+  protected void ffmpegSessionGetStatistics(@NonNull final Integer sessionId, @NonNull final Result result) {
+    final Session session = FFmpegKitConfig.getSession(sessionId.longValue());
+    if (session == null) {
+      resultHandler.errorAsync(result, "SESSION_NOT_FOUND", "Session not found.");
+    } else {
+      if (session.isFFmpeg()) {
+        final List<Statistics> statistics = ((FFmpegSession) session).getStatistics();
+        resultHandler.successAsync(result, toStatisticsMapList(statistics));
+      } else {
+        resultHandler.errorAsync(result, "NOT_FFMPEG_SESSION", "A session is found but it does not have the correct type.");
+      }
+    }
+  }
+
+  protected void ffprobeSession(@NonNull final List<String> arguments, @NonNull final Result result) {
+    final FFprobeSession session = FFprobeSession.create(arguments.toArray(new String[0]), null, null, LogRedirectionStrategy.NEVER_PRINT_LOGS);
+    resultHandler.successAsync(result, toMap(session));
+  }
+
+  protected void mediaInformationSession(@NonNull final List<String> arguments, @NonNull final Result result) {
+    final MediaInformationSession session = MediaInformationSession.create(arguments.toArray(new String[0]), null, null);
+    resultHandler.successAsync(result, toMap(session));
+  }
+
+  protected void getMediaInformation(@NonNull final Integer sessionId, @NonNull final Result result) {
+    final Session session = FFmpegKitConfig.getSession(sessionId.longValue());
+    if (session == null) {
+      resultHandler.errorAsync(result, "SESSION_NOT_FOUND", "Session not found.");
+    } else {
+      if (session.isMediaInformation()) {
+        final MediaInformationSession mediaInformationSession = (MediaInformationSession) session;
+        final MediaInformation mediaInformation = mediaInformationSession.getMediaInformation();
+        resultHandler.successAsync(result, toMap(mediaInformation));
+      } else {
+        resultHandler.errorAsync(result, "NOT_MEDIA_INFORMATION_SESSION", "A session is found but it does not have the correct type.");
+      }
+    }
+  }
+
+  protected void mediaInformationJsonParserFrom(@NonNull final String ffprobeJsonOutput, @NonNull final Result result) {
+    try {
+      final MediaInformation mediaInformation = MediaInformationJsonParser.fromWithError(ffprobeJsonOutput);
+      resultHandler.successAsync(result, toMap(mediaInformation));
+    } catch (final JSONException e) {
+      Log.i(LIBRARY_NAME, "Parsing MediaInformation failed.", e);
+      resultHandler.successAsync(result, null);
+    }
+  }
+
+  protected void mediaInformationJsonParserFromWithError(@NonNull final String ffprobeJsonOutput, @NonNull final Result result) {
+    try {
+      final MediaInformation mediaInformation = MediaInformationJsonParser.fromWithError(ffprobeJsonOutput);
+      resultHandler.successAsync(result, toMap(mediaInformation));
+    } catch (JSONException e) {
+      Log.i(LIBRARY_NAME, "Parsing MediaInformation failed.", e);
+      resultHandler.errorAsync(result, "PARSE_FAILED", "Parsing MediaInformation failed with JSON error.");
+    }
+  }
+
+  protected void enableRedirection(@NonNull final Result result) {
+    enableLogs();
+    enableStatistics();
+    FFmpegKitConfig.enableRedirection();
+
+    resultHandler.successAsync(result, null);
+  }
+
+  protected void disableRedirection(@NonNull final Result result) {
+    FFmpegKitConfig.disableRedirection();
+
+    resultHandler.successAsync(result, null);
+  }
+
+  protected void enableLogs(@NonNull final Result result) {
+    enableLogs();
+
+    resultHandler.successAsync(result, null);
+  }
+
+  protected void disableLogs(@NonNull final Result result) {
+    disableLogs();
+
+    resultHandler.successAsync(result, null);
+  }
+
+  protected void enableStatistics(@NonNull final Result result) {
+    enableStatistics();
+
+    resultHandler.successAsync(result, null);
+  }
+
+  protected void disableStatistics(@NonNull final Result result) {
+    disableStatistics();
+
+    resultHandler.successAsync(result, null);
+  }
+
+  protected void setFontconfigConfigurationPath(@NonNull final String path, @NonNull final Result result) {
+    FFmpegKitConfig.setFontconfigConfigurationPath(path);
+
+    resultHandler.successAsync(result, null);
+  }
+
+  protected void setFontDirectory(@NonNull final String fontDirectoryPath, @Nullable final Map<String, String> fontNameMapping, @NonNull final Result result) {
+    if (context != null) {
+      FFmpegKitConfig.setFontDirectory(context, fontDirectoryPath, fontNameMapping);
+      resultHandler.successAsync(result, null);
+    } else {
+      Log.w(LIBRARY_NAME, "Cannot setFontDirectory. Context is null.");
+      resultHandler.errorAsync(result, "INVALID_CONTEXT", "Context is null.");
+    }
+  }
+
+  protected void setFontDirectoryList(@NonNull final List<String> fontDirectoryList, @Nullable final Map<String, String> fontNameMapping, @NonNull final Result result) {
+    if (context != null) {
+      FFmpegKitConfig.setFontDirectoryList(context, fontDirectoryList, fontNameMapping);
+      resultHandler.successAsync(result, null);
+    } else {
+      Log.w(LIBRARY_NAME, "Cannot setFontDirectoryList. Context is null.");
+      resultHandler.errorAsync(result, "INVALID_CONTEXT", "Context is null.");
+    }
+  }
+
+  protected void registerNewFFmpegPipe(@NonNull final Result result) {
+    if (context != null) {
+      resultHandler.successAsync(result, FFmpegKitConfig.registerNewFFmpegPipe(context));
+    } else {
+      Log.w(LIBRARY_NAME, "Cannot registerNewFFmpegPipe. Context is null.");
+      resultHandler.errorAsync(result, "INVALID_CONTEXT", "Context is null.");
+    }
+  }
+
+  protected void closeFFmpegPipe(@NonNull final String ffmpegPipePath, @NonNull final Result result) {
+    FFmpegKitConfig.closeFFmpegPipe(ffmpegPipePath);
+
+    resultHandler.successAsync(result, null);
+  }
+
+  protected void getFFmpegVersion(@NonNull final Result result) {
+    resultHandler.successAsync(result, FFmpegKitConfig.getFFmpegVersion());
+  }
+
+  protected void isLTSBuild(@NonNull final Result result) {
+    resultHandler.successAsync(result, FFmpegKitConfig.isLTSBuild());
+  }
+
+  protected void getBuildDate(@NonNull final Result result) {
+    resultHandler.successAsync(result, FFmpegKitConfig.getBuildDate());
+  }
+
+  protected void setEnvironmentVariable(@NonNull final String variableName, @NonNull final String variableValue, @NonNull final Result result) {
+    FFmpegKitConfig.setEnvironmentVariable(variableName, variableValue);
+
+    resultHandler.successAsync(result, null);
+  }
+
+  protected void ignoreSignal(@NonNull final Integer signalIndex, @NonNull final Result result) {
+    Signal signal = null;
+
+    if (signalIndex == Signal.SIGINT.ordinal()) {
+      signal = Signal.SIGINT;
+    } else if (signalIndex == Signal.SIGQUIT.ordinal()) {
+      signal = Signal.SIGQUIT;
+    } else if (signalIndex == Signal.SIGPIPE.ordinal()) {
+      signal = Signal.SIGPIPE;
+    } else if (signalIndex == Signal.SIGTERM.ordinal()) {
+      signal = Signal.SIGTERM;
+    } else if (signalIndex == Signal.SIGXCPU.ordinal()) {
+      signal = Signal.SIGXCPU;
     }
 
-    protected static int toInt(final LogRedirectionStrategy logRedirectionStrategy) {
-        switch (logRedirectionStrategy) {
-            case ALWAYS_PRINT_LOGS:
-                return 0;
-            case PRINT_LOGS_WHEN_NO_CALLBACKS_DEFINED:
-                return 1;
-            case PRINT_LOGS_WHEN_GLOBAL_CALLBACK_NOT_DEFINED:
-                return 2;
-            case PRINT_LOGS_WHEN_SESSION_CALLBACK_NOT_DEFINED:
-                return 3;
-            case NEVER_PRINT_LOGS:
-            default:
-                return 4;
-        }
+    if (signal != null) {
+      FFmpegKitConfig.ignoreSignal(signal);
+
+      resultHandler.successAsync(result, null);
+    } else {
+      resultHandler.errorAsync(result, "INVALID_SIGNAL", "Signal value not supported.");
     }
+  }
 
-    protected static LogRedirectionStrategy toLogRedirectionStrategy(final int value) {
-        switch (value) {
-            case 0:
-                return LogRedirectionStrategy.ALWAYS_PRINT_LOGS;
-            case 1:
-                return LogRedirectionStrategy.PRINT_LOGS_WHEN_NO_CALLBACKS_DEFINED;
-            case 2:
-                return LogRedirectionStrategy.PRINT_LOGS_WHEN_GLOBAL_CALLBACK_NOT_DEFINED;
-            case 3:
-                return LogRedirectionStrategy.PRINT_LOGS_WHEN_SESSION_CALLBACK_NOT_DEFINED;
-            case 4:
-            default:
-                return LogRedirectionStrategy.NEVER_PRINT_LOGS;
-        }
+  protected void ffmpegSessionExecute(@NonNull final Integer sessionId, @NonNull final Result result) {
+    final Session session = FFmpegKitConfig.getSession(sessionId.longValue());
+    if (session == null) {
+      resultHandler.errorAsync(result, "SESSION_NOT_FOUND", "Session not found.");
+    } else {
+      if (session.isFFmpeg()) {
+        final FFmpegSessionExecuteTask ffmpegSessionExecuteTask = new FFmpegSessionExecuteTask((FFmpegSession) session, resultHandler, result);
+        asyncExecutorService.submit(ffmpegSessionExecuteTask);
+      } else {
+        resultHandler.errorAsync(result, "NOT_FFMPEG_SESSION", "A session is found but it does not have the correct type.");
+      }
     }
+  }
 
-    protected static SessionState toSessionState(final int value) {
-        switch (value) {
-            case 0:
-                return SessionState.CREATED;
-            case 1:
-                return SessionState.RUNNING;
-            case 2:
-                return SessionState.FAILED;
-            case 3:
-            default:
-                return SessionState.COMPLETED;
-        }
+  protected void ffprobeSessionExecute(@NonNull final Integer sessionId, @NonNull final Result result) {
+    final Session session = FFmpegKitConfig.getSession(sessionId.longValue());
+    if (session == null) {
+      resultHandler.errorAsync(result, "SESSION_NOT_FOUND", "Session not found.");
+    } else {
+      if (session.isFFprobe()) {
+        final FFprobeSessionExecuteTask ffprobeSessionExecuteTask = new FFprobeSessionExecuteTask((FFprobeSession) session, resultHandler, result);
+        asyncExecutorService.submit(ffprobeSessionExecuteTask);
+      } else {
+        resultHandler.errorAsync(result, "NOT_FFPROBE_SESSION", "A session is found but it does not have the correct type.");
+      }
     }
+  }
 
-    protected static Map<String, Object> toMap(final com.arthenica.ffmpegkit.Log log) {
-        final HashMap<String, Object> logMap = new HashMap<>();
-
-        logMap.put(KEY_LOG_SESSION_ID, log.getSessionId());
-        logMap.put(KEY_LOG_LEVEL, toInt(log.getLevel()));
-        logMap.put(KEY_LOG_MESSAGE, log.getMessage());
-
-        return logMap;
-    }
-
-    protected static Map<String, Object> toMap(final Statistics statistics) {
-        final HashMap<String, Object> statisticsMap = new HashMap<>();
-
-        if (statistics != null) {
-            statisticsMap.put(KEY_STATISTICS_SESSION_ID, statistics.getSessionId());
-            statisticsMap.put(KEY_STATISTICS_VIDEO_FRAME_NUMBER, statistics.getVideoFrameNumber());
-            statisticsMap.put(KEY_STATISTICS_VIDEO_FPS, statistics.getVideoFps());
-            statisticsMap.put(KEY_STATISTICS_VIDEO_QUALITY, statistics.getVideoQuality());
-            statisticsMap.put(KEY_STATISTICS_SIZE, (statistics.getSize() < Integer.MAX_VALUE) ? (int) statistics.getSize() : (int) (statistics.getSize() % Integer.MAX_VALUE));
-            statisticsMap.put(KEY_STATISTICS_TIME, statistics.getTime());
-            statisticsMap.put(KEY_STATISTICS_BITRATE, statistics.getBitrate());
-            statisticsMap.put(KEY_STATISTICS_SPEED, statistics.getSpeed());
-        }
-
-        return statisticsMap;
-    }
-
-    protected static Map<String, Object> toMap(final MediaInformation mediaInformation) {
-        if (mediaInformation != null) {
-            Map<String, Object> map = new HashMap<>();
-
-            if (mediaInformation.getAllProperties() != null) {
-                JSONObject allProperties = mediaInformation.getAllProperties();
-                if (allProperties != null) {
-                    map = toMap(allProperties);
-                }
-            }
-
-            return map;
+  protected void mediaInformationSessionExecute(@NonNull final Integer sessionId, @Nullable final Integer waitTimeout, @NonNull final Result result) {
+    final Session session = FFmpegKitConfig.getSession(sessionId.longValue());
+    if (session == null) {
+      resultHandler.errorAsync(result, "SESSION_NOT_FOUND", "Session not found.");
+    } else {
+      if (session.isMediaInformation()) {
+        final int timeout;
+        if (isValidPositiveNumber(waitTimeout)) {
+          timeout = waitTimeout;
         } else {
-            return null;
+          timeout = AbstractSession.DEFAULT_TIMEOUT_FOR_ASYNCHRONOUS_MESSAGES_IN_TRANSMIT;
         }
+        final MediaInformationSessionExecuteTask mediaInformationSessionExecuteTask = new MediaInformationSessionExecuteTask((MediaInformationSession) session, timeout, resultHandler, result);
+        asyncExecutorService.submit(mediaInformationSessionExecuteTask);
+      } else {
+        resultHandler.errorAsync(result, "NOT_MEDIA_INFORMATION_SESSION", "A session is found but it does not have the correct type.");
+      }
     }
+  }
 
-    protected static Map<String, Object> toMap(final JSONObject jsonObject) {
-        final HashMap<String, Object> map = new HashMap<>();
+  protected void asyncFFmpegSessionExecute(@NonNull final Integer sessionId, @NonNull final Result result) {
+    final Session session = FFmpegKitConfig.getSession(sessionId.longValue());
+    if (session == null) {
+      resultHandler.errorAsync(result, "SESSION_NOT_FOUND", "Session not found.");
+    } else {
+      if (session.isFFmpeg()) {
+        FFmpegKitConfig.asyncFFmpegExecute((FFmpegSession) session);
+        resultHandler.successAsync(result, null);
+      } else {
+        resultHandler.errorAsync(result, "NOT_FFMPEG_SESSION", "A session is found but it does not have the correct type.");
+      }
+    }
+  }
 
-        if (jsonObject != null) {
-            Iterator<String> keys = jsonObject.keys();
-            while (keys.hasNext()) {
-                String key = keys.next();
-                Object value = jsonObject.opt(key);
-                if (value != null) {
-                    if (value instanceof JSONArray) {
-                        value = toList((JSONArray) value);
-                    } else if (value instanceof JSONObject) {
-                        value = toMap((JSONObject) value);
-                    }
-                    map.put(key, value);
-                }
-            }
+  protected void asyncFFprobeSessionExecute(@NonNull final Integer sessionId, @NonNull final Result result) {
+    final Session session = FFmpegKitConfig.getSession(sessionId.longValue());
+    if (session == null) {
+      resultHandler.errorAsync(result, "SESSION_NOT_FOUND", "Session not found.");
+    } else {
+      if (session.isFFprobe()) {
+        FFmpegKitConfig.asyncFFprobeExecute((FFprobeSession) session);
+        resultHandler.successAsync(result, null);
+      } else {
+        resultHandler.errorAsync(result, "NOT_FFPROBE_SESSION", "A session is found but it does not have the correct type.");
+      }
+    }
+  }
+
+  protected void asyncMediaInformationSessionExecute(@NonNull final Integer sessionId, @Nullable final Integer waitTimeout, @NonNull final Result result) {
+    final Session session = FFmpegKitConfig.getSession(sessionId.longValue());
+    if (session == null) {
+      resultHandler.errorAsync(result, "SESSION_NOT_FOUND", "Session not found.");
+    } else {
+      if (session.isMediaInformation()) {
+        final int timeout;
+        if (isValidPositiveNumber(waitTimeout)) {
+          timeout = waitTimeout;
+        } else {
+          timeout = AbstractSession.DEFAULT_TIMEOUT_FOR_ASYNCHRONOUS_MESSAGES_IN_TRANSMIT;
         }
+        FFmpegKitConfig.asyncGetMediaInformationExecute((MediaInformationSession) session, timeout);
+        resultHandler.successAsync(result, null);
+      } else {
+        resultHandler.errorAsync(result, "NOT_MEDIA_INFORMATION_SESSION", "A session is found but it does not have the correct type.");
+      }
+    }
+  }
 
-        return map;
+  protected void getLogLevel(@NonNull final Result result) {
+    resultHandler.successAsync(result, toInt(FFmpegKitConfig.getLogLevel()));
+  }
+
+  protected void setLogLevel(@NonNull final Integer level, @NonNull final Result result) {
+    FFmpegKitConfig.setLogLevel(Level.from(level));
+    resultHandler.successAsync(result, null);
+  }
+
+  // FFmpegKit
+
+  protected void getSessionHistorySize(@NonNull final Result result) {
+    resultHandler.successAsync(result, FFmpegKitConfig.getSessionHistorySize());
+  }
+
+  protected void setSessionHistorySize(@NonNull final Integer sessionHistorySize, @NonNull final Result result) {
+    FFmpegKitConfig.setSessionHistorySize(sessionHistorySize);
+    resultHandler.successAsync(result, null);
+  }
+
+  protected void getSession(@NonNull final Integer sessionId, @NonNull final Result result) {
+    final Session session = FFmpegKitConfig.getSession(sessionId.longValue());
+    if (session == null) {
+      resultHandler.errorAsync(result, "SESSION_NOT_FOUND", "Session not found.");
+    } else {
+      resultHandler.successAsync(result, toMap(session));
+    }
+  }
+
+  // FFprobeKit
+
+  protected void getLastSession(@NonNull final Result result) {
+    final Session session = FFmpegKitConfig.getLastSession();
+    resultHandler.successAsync(result, toMap(session));
+  }
+
+  protected void getLastCompletedSession(@NonNull final Result result) {
+    final Session session = FFmpegKitConfig.getLastCompletedSession();
+    resultHandler.successAsync(result, toMap(session));
+  }
+
+  // Packages
+
+  protected void getSessions(@NonNull final Result result) {
+    resultHandler.successAsync(result, toSessionMapList(FFmpegKitConfig.getSessions()));
+  }
+
+  protected void clearSessions(@NonNull final Result result) {
+    FFmpegKitConfig.clearSessions();
+    resultHandler.successAsync(result, null);
+  }
+
+  protected void getSessionsByState(@NonNull final Integer sessionState, @NonNull final Result result) {
+    resultHandler.successAsync(result, toSessionMapList(FFmpegKitConfig.getSessionsByState(toSessionState(sessionState))));
+  }
+
+  protected void getLogRedirectionStrategy(@NonNull final Result result) {
+    resultHandler.successAsync(result, toInt(FFmpegKitConfig.getLogRedirectionStrategy()));
+  }
+
+  protected void setLogRedirectionStrategy(@NonNull final Integer logRedirectionStrategy, @NonNull final Result result) {
+    FFmpegKitConfig.setLogRedirectionStrategy(toLogRedirectionStrategy(logRedirectionStrategy));
+    resultHandler.successAsync(result, null);
+  }
+
+  protected void messagesInTransmit(@NonNull final Integer sessionId, @NonNull final Result result) {
+    resultHandler.successAsync(result, FFmpegKitConfig.messagesInTransmit(sessionId.longValue()));
+  }
+
+  protected void getPlatform(@NonNull final Result result) {
+    resultHandler.successAsync(result, PLATFORM_NAME);
+  }
+
+  protected void writeToPipe(@NonNull final String inputPath, @NonNull final String namedPipePath, @NonNull final Result result) {
+    final WriteToPipeTask asyncTask = new WriteToPipeTask(inputPath, namedPipePath, resultHandler, result);
+    asyncExecutorService.submit(asyncTask);
+  }
+
+  protected void selectDocument(@NonNull final Boolean writable, @Nullable final String title, @Nullable final String type, @Nullable final String[] extraTypes, @NonNull final Result result) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT) {
+      android.util.Log.i(LIBRARY_NAME, String.format(Locale.getDefault(), "selectDocument is not supported on API Level %d", Build.VERSION.SDK_INT));
+      resultHandler.errorAsync(result, "SELECT_FAILED", String.format(Locale.getDefault(), "selectDocument is not supported on API Level %d", Build.VERSION.SDK_INT));
+      return;
     }
 
-    protected static List<Object> toList(final JSONArray array) {
-        final List<Object> list = new ArrayList<>();
+    final Intent intent;
+    if (writable) {
+      intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+      intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+    } else {
+      intent = new Intent(Intent.ACTION_GET_CONTENT);
+      intent.addCategory(Intent.CATEGORY_OPENABLE);
+      intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+    }
 
-        for (int i = 0; i < array.length(); i++) {
-            Object value = array.opt(i);
-            if (value != null) {
-                if (value instanceof JSONArray) {
-                    value = toList((JSONArray) value);
-                } else if (value instanceof JSONObject) {
-                    value = toMap((JSONObject) value);
-                }
-                list.add(value);
-            }
+    if (type != null) {
+      intent.setType(type);
+    } else {
+      intent.setType("*/*");
+    }
+
+    if (title != null) {
+      intent.putExtra(Intent.EXTRA_TITLE, title);
+    }
+
+    if (extraTypes != null) {
+      intent.putExtra(Intent.EXTRA_MIME_TYPES, extraTypes);
+    }
+
+    if (context != null) {
+      if (activity != null) {
+        try {
+          lastInitiatedIntentResult = result;
+          activity.startActivityForResult(intent, writable ? WRITABLE_REQUEST_CODE : READABLE_REQUEST_CODE);
+        } catch (final Exception e) {
+          Log.i(LIBRARY_NAME, String.format("Failed to selectDocument using parameters writable: %s, type: %s, title: %s and extra types: %s!", writable, type, title, extraTypes == null ? null : Arrays.toString(extraTypes)), e);
+          resultHandler.errorAsync(result, "SELECT_FAILED", e.getMessage());
         }
+      } else {
+        Log.w(LIBRARY_NAME, String.format("Cannot selectDocument using parameters writable: %s, type: %s, title: %s and extra types: %s. Activity is null.", writable, type, title, extraTypes == null ? null : Arrays.toString(extraTypes)));
+        resultHandler.errorAsync(result, "INVALID_ACTIVITY", "Activity is null.");
+      }
+    } else {
+      Log.w(LIBRARY_NAME, String.format("Cannot selectDocument using parameters writable: %s, type: %s, title: %s and extra types: %s. Context is null.", writable, type, title, extraTypes == null ? null : Arrays.toString(extraTypes)));
+      resultHandler.errorAsync(result, "INVALID_CONTEXT", "Context is null.");
+    }
+  }
 
-        return list;
+  protected void getSafParameter(@NonNull final String uriString, @NonNull final String openMode, @NonNull final Result result) {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT) {
+      android.util.Log.i(LIBRARY_NAME, String.format(Locale.getDefault(), "getSafParameter is not supported on API Level %d", Build.VERSION.SDK_INT));
+      resultHandler.errorAsync(result, "GET_SAF_PARAMETER_FAILED", String.format(Locale.getDefault(), "getSafParameter is not supported on API Level %d", Build.VERSION.SDK_INT));
+      return;
     }
 
-    protected static List<Map<String, Object>> toSessionMapList(final List<? extends Session> sessionList) {
-        final List<Map<String, Object>> list = new ArrayList<>();
+    if (context != null) {
+      final Uri uri = Uri.parse(uriString);
+      if (uri == null) {
+        Log.w(LIBRARY_NAME, String.format("Cannot getSafParameter using parameters uriString: %s, openMode: %s. Uri string cannot be parsed.", uriString, openMode));
+        resultHandler.errorAsync(result, "GET_SAF_PARAMETER_FAILED", "Uri string cannot be parsed.");
+      } else {
+        final String safParameter = FFmpegKitConfig.getSafParameter(context, uri, openMode);
 
-        for (int i = 0; i < sessionList.size(); i++) {
-            list.add(toMap(sessionList.get(i)));
-        }
+        Log.d(LIBRARY_NAME, String.format("getSafParameter using parameters uriString: %s, openMode: %s completed with saf parameter: %s.", uriString, openMode, safParameter));
 
-        return list;
+        resultHandler.successAsync(result, safParameter);
+      }
+    } else {
+      Log.w(LIBRARY_NAME, String.format("Cannot getSafParameter using parameters uriString: %s, openMode: %s. Context is null.", uriString, openMode));
+      resultHandler.errorAsync(result, "INVALID_CONTEXT", "Context is null.");
     }
+  }
 
-    protected static List<Map<String, Object>> toLogMapList(final List<com.arthenica.ffmpegkit.Log> logList) {
-        final List<Map<String, Object>> list = new ArrayList<>();
+  protected void cancel(@NonNull final Result result) {
+    FFmpegKit.cancel();
+    resultHandler.successAsync(result, null);
+  }
 
-        for (int i = 0; i < logList.size(); i++) {
-            list.add(toMap(logList.get(i)));
-        }
+  protected void cancelSession(@NonNull final Integer sessionId, @NonNull final Result result) {
+    FFmpegKit.cancel(sessionId.longValue());
+    resultHandler.successAsync(result, null);
+  }
 
-        return list;
-    }
+  protected void getFFmpegSessions(@NonNull final Result result) {
+    resultHandler.successAsync(result, toSessionMapList(FFmpegKit.listSessions()));
+  }
 
-    protected static List<Map<String, Object>> toStatisticsMapList(final List<com.arthenica.ffmpegkit.Statistics> statisticsList) {
-        final List<Map<String, Object>> list = new ArrayList<>();
+  protected void getFFprobeSessions(@NonNull final Result result) {
+    resultHandler.successAsync(result, toSessionMapList(FFprobeKit.listFFprobeSessions()));
+  }
 
-        for (int i = 0; i < statisticsList.size(); i++) {
-            list.add(toMap(statisticsList.get(i)));
-        }
+  protected void getMediaInformationSessions(@NonNull final Result result) {
+    resultHandler.successAsync(result, toSessionMapList(FFprobeKit.listMediaInformationSessions()));
+  }
 
-        return list;
-    }
+  protected void getPackageName(@NonNull final Result result) {
+    resultHandler.successAsync(result, Packages.getPackageName());
+  }
 
-    protected static boolean isValidPositiveNumber(final Integer value) {
-        return (value != null) && (value >= 0);
-    }
+  protected void getExternalLibraries(@NonNull final Result result) {
+    resultHandler.successAsync(result, Packages.getExternalLibraries());
+  }
 
-    protected void emitLog(final com.arthenica.ffmpegkit.Log log) {
-        final HashMap<String, Object> logMap = new HashMap<>();
-        logMap.put(EVENT_LOG_CALLBACK_EVENT, toMap(log));
-        resultHandler.successAsync(eventSink, logMap);
-    }
+  protected void enableLogs() {
+    logsEnabled.compareAndSet(false, true);
+  }
 
-    protected void emitStatistics(final Statistics statistics) {
-        final HashMap<String, Object> statisticsMap = new HashMap<>();
-        statisticsMap.put(EVENT_STATISTICS_CALLBACK_EVENT, toMap(statistics));
-        resultHandler.successAsync(eventSink, statisticsMap);
-    }
+  protected void disableLogs() {
+    logsEnabled.compareAndSet(true, false);
+  }
 
-    protected void emitSession(final Session session) {
-        final HashMap<String, Object> sessionMap = new HashMap<>();
-        sessionMap.put(EVENT_COMPLETE_CALLBACK_EVENT, toMap(session));
-        resultHandler.successAsync(eventSink, sessionMap);
-    }
+  protected void enableStatistics() {
+    statisticsEnabled.compareAndSet(false, true);
+  }
+
+  protected void disableStatistics() {
+    statisticsEnabled.compareAndSet(true, false);
+  }
+
+  protected void emitLog(final com.arthenica.ffmpegkit.Log log) {
+    final HashMap<String, Object> logMap = new HashMap<>();
+    logMap.put(EVENT_LOG_CALLBACK_EVENT, toMap(log));
+    resultHandler.successAsync(eventSink, logMap);
+  }
+
+  protected void emitStatistics(final Statistics statistics) {
+    final HashMap<String, Object> statisticsMap = new HashMap<>();
+    statisticsMap.put(EVENT_STATISTICS_CALLBACK_EVENT, toMap(statistics));
+    resultHandler.successAsync(eventSink, statisticsMap);
+  }
+
+  protected void emitSession(final Session session) {
+    final HashMap<String, Object> sessionMap = new HashMap<>();
+    sessionMap.put(EVENT_COMPLETE_CALLBACK_EVENT, toMap(session));
+    resultHandler.successAsync(eventSink, sessionMap);
+  }
 
 }

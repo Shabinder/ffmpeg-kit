@@ -1,6 +1,7 @@
 # FFmpegKit for Linux
 
 ### 1. Features
+
 - Provides a `C++` API with `c++11`
 - Includes `x86_64` architecture
 - Builds shared native libraries (.so)
@@ -8,10 +9,12 @@
 
 ### 2. Building
 
-Run `linux.sh` at project root directory to build `ffmpeg-kit` and `ffmpeg` shared libraries. 
+Run `linux.sh` at project root directory to build `ffmpeg-kit` and `ffmpeg` shared libraries.
 
-Please note that `FFmpegKit` project repository includes the source code of `FFmpegKit` only. `linux.sh` needs 
-network connectivity and internet access to `github.com` in order to download the source code of `FFmpeg` and 
+Please note that `FFmpegKit` project repository includes the source code of `FFmpegKit` only.
+`linux.sh` needs
+network connectivity and internet access to `github.com` in order to download the source code of
+`FFmpeg` and
 external libraries enabled.
 
 #### 2.1 Prerequisites
@@ -22,7 +25,8 @@ external libraries enabled.
 
 Use your package manager (apt, yum, dnf, etc.) to install the following packages.
 
-Note that the names of the Linux packages vary from distribution to distribution. The names given below are
+Note that the names of the Linux packages vary from distribution to distribution. The names given
+below are
 valid for Debian/Ubuntu. Some packages may have a different name if you are on another distribution.
 
 - The following packages are required by the build scripts.
@@ -31,8 +35,9 @@ valid for Debian/Ubuntu. Some packages may have a different name if you are on a
   clang llvm lld libclang-14-dev libstdc++6 nasm autoconf automake libtool pkg-config curl git doxygen rapidjson-dev
   ```
 
-- These optional packages should be installed only if you want to build corresponding external libraries.
-  
+- These optional packages should be installed only if you want to build corresponding external
+  libraries.
+
   ```
   cmake libasound2-dev libass-dev libfontconfig1-dev libfreetype-dev libfribidi-dev libgmp-dev libgnutls28-dev libmp3lame-dev libopencore-amrnb-dev libopencore-amrwb-dev libopus-dev librubberband-dev libsdl2-dev libshine-dev libsnappy-dev libsoxr-dev libspeex-dev libtesseract-dev libtheora-dev libtwolame-dev libva-dev libvidstab-dev libvorbis-dev libvo-amrwbenc-dev libvpx-dev libv4l-dev libwebp-dev libxml2-dev libxvidcore-dev libx265-dev meson ocl-icd-opencl-dev opencl-headers tcl zlib1g-dev groff gtk-doc-tools libtasn1
   ```
@@ -57,10 +62,12 @@ All libraries created by `linux.sh` can be found under the `prebuilt` directory.
 
 #### 3.1 C++ API
 
-`FFmpegKit` doesn't publish any prebuilt `Linux` libraries, as it does for other platforms. Therefore, you need to
-manually build and import `FFmpegKit` libraries into your projects. 
+`FFmpegKit` doesn't publish any prebuilt `Linux` libraries, as it does for other platforms.
+Therefore, you need to
+manually build and import `FFmpegKit` libraries into your projects.
 
-Then, you can use the following API methods to execute `FFmpeg` and `FFprobe` commands inside your application.
+Then, you can use the following API methods to execute `FFmpeg` and `FFprobe` commands inside your
+application.
 
 1. Execute synchronous `FFmpeg` commands.
 
@@ -87,7 +94,8 @@ Then, you can use the following API methods to execute `FFmpeg` and `FFprobe` co
     }
     ```
 
-2. Each `execute` call (sync or async) creates a new session. Access every detail about your execution from the 
+2. Each `execute` call (sync or async) creates a new session. Access every detail about your
+   execution from the
    session created.
 
     ```C++
@@ -95,7 +103,7 @@ Then, you can use the following API methods to execute `FFmpeg` and `FFprobe` co
     #include <FFmpegKitConfig.h>
 
     using namespace ffmpegkit;
-   
+
     auto session = FFmpegKit::execute("-i file1.mp4 -c:v mpeg4 file2.mp4");
 
     // Unique session id created for this execution
@@ -130,27 +138,28 @@ Then, you can use the following API methods to execute `FFmpeg` and `FFprobe` co
     auto statistics = session->getStatistics();
     ```
 
-3. Execute asynchronous `FFmpeg` commands by providing session specific `execute`/`log`/`session` callbacks.
+3. Execute asynchronous `FFmpeg` commands by providing session specific `execute`/`log`/`session`
+   callbacks.
 
     ```C++
     #include <FFmpegKit.h>
     #include <FFmpegKitConfig.h>
 
     using namespace ffmpegkit;
-   
+
     FFmpegKit::executeAsync("-i file1.mp4 -c:v mpeg4 file2.mp4", [](auto session) {
         const auto state = session->getState();
         auto returnCode = session->getReturnCode();
-   
+
         // CALLED WHEN SESSION IS EXECUTED
 
         std::cout << "FFmpeg process exited with state " << FFmpegKitConfig::sessionStateToString(state) << " and rc " << returnCode << "." << session->getFailStackTrace() << std::endl;
     }, [](auto log) {
 
         // CALLED WHEN SESSION PRINTS LOGS
-   
+
     }, [](auto statistics) {
-   
+
         // CALLED WHEN SESSION GENERATES STATISTICS
 
     });
@@ -158,7 +167,7 @@ Then, you can use the following API methods to execute `FFmpeg` and `FFprobe` co
 
 4. Execute `FFprobe` commands.
 
-    - Synchronous
+  - Synchronous
 
     ```C++
     #include <FFprobeKit.h>
@@ -173,7 +182,7 @@ Then, you can use the following API methods to execute `FFmpeg` and `FFprobe` co
     }
     ```
 
-    - Asynchronous
+  - Asynchronous
 
     ```C++
     #include <FFprobeKit.h>
@@ -182,7 +191,7 @@ Then, you can use the following API methods to execute `FFmpeg` and `FFprobe` co
     using namespace ffmpegkit;
 
     FFprobeKit::executeAsync(ffprobeCommand, [](auto session) {
-   
+
         // CALLED WHEN SESSION IS EXECUTED
 
     });
@@ -201,14 +210,14 @@ Then, you can use the following API methods to execute `FFmpeg` and `FFprobe` co
 
 6. Stop ongoing `FFmpeg` operations.
 
-    - Stop all executions
-        ```C++
-        FFmpegKit::cancel();
-        ```
-    - Stop a specific session
-        ```C++
-        FFmpegKit::cancel(sessionId);
-        ```
+  - Stop all executions
+      ```C++
+      FFmpegKit::cancel();
+      ```
+  - Stop a specific session
+      ```C++
+      FFmpegKit::cancel(sessionId);
+      ```
 
 7. Get previous `FFmpeg` and `FFprobe` sessions from session history.
 
@@ -225,49 +234,49 @@ Then, you can use the following API methods to execute `FFmpeg` and `FFprobe` co
     ```
 8. Enable global callbacks.
 
-    - Session type specific Complete Callbacks, called when an async session has been completed
+  - Session type specific Complete Callbacks, called when an async session has been completed
 
-        ```C++
-        #include <FFmpegKitConfig.h>
+      ```C++
+      #include <FFmpegKitConfig.h>
 
-        using namespace ffmpegkit;
+      using namespace ffmpegkit;
 
-        FFmpegKitConfig::enableFFmpegSessionCompleteCallback([](auto session) {
+      FFmpegKitConfig::enableFFmpegSessionCompleteCallback([](auto session) {
 
-        });
+      });
 
-        FFmpegKitConfig::enableFFprobeSessionCompleteCallback([](auto session) {
+      FFmpegKitConfig::enableFFprobeSessionCompleteCallback([](auto session) {
 
-        });
+      });
 
-        FFmpegKitConfig::enableMediaInformationSessionCompleteCallback([](auto session) {
-      
-        });
-        ```
+      FFmpegKitConfig::enableMediaInformationSessionCompleteCallback([](auto session) {
 
-    - Log Callback, called when a session generates logs
+      });
+      ```
 
-        ```C++
-        #include <FFmpegKitConfig.h>
+  - Log Callback, called when a session generates logs
 
-        using namespace ffmpegkit;
+      ```C++
+      #include <FFmpegKitConfig.h>
 
-        FFmpegKitConfig::enableLogCallback([](auto log) {
-            ...
-        });
-        ```
+      using namespace ffmpegkit;
 
-    - Statistics Callback, called when a session generates statistics
+      FFmpegKitConfig::enableLogCallback([](auto log) {
+          ...
+      });
+      ```
 
-        ```C++
-        #include <FFmpegKitConfig.h>
+  - Statistics Callback, called when a session generates statistics
 
-        using namespace ffmpegkit;
+      ```C++
+      #include <FFmpegKitConfig.h>
 
-        FFmpegKitConfig::enableStatisticsCallback([](auto statistics) {
-            ...
-        });
-        ```
+      using namespace ffmpegkit;
+
+      FFmpegKitConfig::enableStatisticsCallback([](auto statistics) {
+          ...
+      });
+      ```
 
 9. Register system fonts and custom font directories.
 
@@ -281,5 +290,6 @@ Then, you can use the following API methods to execute `FFmpeg` and `FFprobe` co
 
 ### 4. Test Application
 
-You can see how `FFmpegKit` is used inside an application by running `Linux` test applications developed under the
+You can see how `FFmpegKit` is used inside an application by running `Linux` test applications
+developed under the
 [FFmpegKit Test](https://github.com/arthenica/ffmpeg-kit-test) project.

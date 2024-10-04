@@ -24,81 +24,79 @@ package com.arthenica.ffmpegkit;
  */
 public class AbiDetect {
 
-    static {
-        armV7aNeonLoaded = false;
+  static final String ARM_V7A = "arm-v7a";
+  static final String ARM_V7A_NEON = "arm-v7a-neon";
+  private static boolean armV7aNeonLoaded;
 
-        NativeLoader.loadFFmpegKitAbiDetect();
+  static {
+    armV7aNeonLoaded = false;
 
-        /* ALL LIBRARIES LOADED AT STARTUP */
-        FFmpegKit.class.getName();
-        FFmpegKitConfig.class.getName();
-        FFprobeKit.class.getName();
+    NativeLoader.loadFFmpegKitAbiDetect();
+
+    /* ALL LIBRARIES LOADED AT STARTUP */
+    FFmpegKit.class.getName();
+    FFmpegKitConfig.class.getName();
+    FFprobeKit.class.getName();
+  }
+
+  /**
+   * Default constructor hidden.
+   */
+  private AbiDetect() {
+  }
+
+  static void setArmV7aNeonLoaded() {
+    armV7aNeonLoaded = true;
+  }
+
+  /**
+   * <p>Returns the ABI name loaded.
+   *
+   * @return ABI name loaded
+   */
+  public static String getAbi() {
+    if (armV7aNeonLoaded) {
+      return ARM_V7A_NEON;
+    } else {
+      return getNativeAbi();
     }
+  }
 
-    static final String ARM_V7A = "arm-v7a";
+  /**
+   * <p>Returns the ABI name of the cpu running.
+   *
+   * @return ABI name of the cpu running
+   */
+  public static String getCpuAbi() {
+    return getNativeCpuAbi();
+  }
 
-    static final String ARM_V7A_NEON = "arm-v7a-neon";
+  /**
+   * <p>Returns the ABI name loaded natively.
+   *
+   * @return ABI name loaded
+   */
+  native static String getNativeAbi();
 
-    private static boolean armV7aNeonLoaded;
+  /**
+   * <p>Returns the ABI name of the cpu running natively.
+   *
+   * @return ABI name of the cpu running
+   */
+  native static String getNativeCpuAbi();
 
-    /**
-     * Default constructor hidden.
-     */
-    private AbiDetect() {
-    }
+  /**
+   * <p>Returns whether FFmpegKit release is a long term release or not natively.
+   *
+   * @return yes or no
+   */
+  native static boolean isNativeLTSBuild();
 
-    static void setArmV7aNeonLoaded() {
-        armV7aNeonLoaded = true;
-    }
-
-    /**
-     * <p>Returns the ABI name loaded.
-     *
-     * @return ABI name loaded
-     */
-    public static String getAbi() {
-        if (armV7aNeonLoaded) {
-            return ARM_V7A_NEON;
-        } else {
-            return getNativeAbi();
-        }
-    }
-
-    /**
-     * <p>Returns the ABI name of the cpu running.
-     *
-     * @return ABI name of the cpu running
-     */
-    public static String getCpuAbi() {
-        return getNativeCpuAbi();
-    }
-
-    /**
-     * <p>Returns the ABI name loaded natively.
-     *
-     * @return ABI name loaded
-     */
-    native static String getNativeAbi();
-
-    /**
-     * <p>Returns the ABI name of the cpu running natively.
-     *
-     * @return ABI name of the cpu running
-     */
-    native static String getNativeCpuAbi();
-
-    /**
-     * <p>Returns whether FFmpegKit release is a long term release or not natively.
-     *
-     * @return yes or no
-     */
-    native static boolean isNativeLTSBuild();
-
-    /**
-     * <p>Returns the build configuration for <code>FFmpeg</code> natively.
-     *
-     * @return build configuration string
-     */
-    native static String getNativeBuildConf();
+  /**
+   * <p>Returns the build configuration for <code>FFmpeg</code> natively.
+   *
+   * @return build configuration string
+   */
+  native static String getNativeBuildConf();
 
 }

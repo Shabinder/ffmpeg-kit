@@ -4,28 +4,31 @@
 
 - Includes both `FFmpeg` and `FFprobe`
 - Supports
-    - `Android`, `iOS` and `macOS`
-    - FFmpeg `v6.0`
-    - `arm-v7a`, `arm-v7a-neon`, `arm64-v8a`, `x86` and `x86_64` architectures on Android
-    - `Android API Level 24` or later
-      - `API Level 16` on LTS releases
-    - `armv7`, `armv7s`, `arm64`, `arm64-simulator`, `i386`, `x86_64`, `x86_64-mac-catalyst` and `arm64-mac-catalyst`
-      architectures on iOS
-    - `iOS SDK 12.1` or later
-      - `iOS SDK 10` on LTS releases
-    - `arm64` and `x86_64` architectures on macOS
-    - `macOS SDK 10.15` or later
-      - `macOS SDK 10.12` on LTS releases
-    - Can process Storage Access Framework (SAF) Uris on Android
-    - 25 external libraries
+  - `Android`, `iOS` and `macOS`
+  - FFmpeg `v6.0`
+  - `arm-v7a`, `arm-v7a-neon`, `arm64-v8a`, `x86` and `x86_64` architectures on Android
+  - `Android API Level 24` or later
+    - `API Level 16` on LTS releases
+  - `armv7`, `armv7s`, `arm64`, `arm64-simulator`, `i386`, `x86_64`, `x86_64-mac-catalyst` and
+    `arm64-mac-catalyst`
+    architectures on iOS
+  - `iOS SDK 12.1` or later
+    - `iOS SDK 10` on LTS releases
+  - `arm64` and `x86_64` architectures on macOS
+  - `macOS SDK 10.15` or later
+    - `macOS SDK 10.12` on LTS releases
+  - Can process Storage Access Framework (SAF) Uris on Android
+  - 25 external libraries
 
-      `dav1d`, `fontconfig`, `freetype`, `fribidi`, `gmp`, `gnutls`, `kvazaar`, `lame`, `libass`, `libiconv`, `libilbc`
-      , `libtheora`, `libvorbis`, `libvpx`, `libwebp`, `libxml2`, `opencore-amr`, `opus`, `shine`, `snappy`, `soxr`
-      , `speex`, `twolame`, `vo-amrwbenc`, `zimg`
+    `dav1d`, `fontconfig`, `freetype`, `fribidi`, `gmp`, `gnutls`, `kvazaar`, `lame`, `libass`,
+    `libiconv`, `libilbc`
+    , `libtheora`, `libvorbis`, `libvpx`, `libwebp`, `libxml2`, `opencore-amr`, `opus`, `shine`,
+    `snappy`, `soxr`
+    , `speex`, `twolame`, `vo-amrwbenc`, `zimg`
 
-    - 4 external libraries with GPL license
+  - 4 external libraries with GPL license
 
-      `vid.stab`, `x264`, `x265`, `xvidcore`
+    `vid.stab`, `x264`, `x265`, `xvidcore`
 
 - Licensed under `LGPL 3.0` by default, some packages licensed by `GPL v3.0` effectively
 
@@ -40,20 +43,27 @@ dependencies:
 
 #### 2.1 Packages
 
-`FFmpeg` includes built-in encoders for some popular formats. However, there are certain external libraries that needs
-to be enabled in order to encode specific formats/codecs. For example, to encode an `mp3` file you need `lame` or
-`shine` library enabled. You have to install a `ffmpeg_kit_flutter` package that has at least one of them inside. To
-encode an `h264` video, you need to install a package with `x264` inside. To encode `vp8` or `vp9` videos, you need
+`FFmpeg` includes built-in encoders for some popular formats. However, there are certain external
+libraries that needs
+to be enabled in order to encode specific formats/codecs. For example, to encode an `mp3` file you
+need `lame` or
+`shine` library enabled. You have to install a `ffmpeg_kit_flutter` package that has at least one of
+them inside. To
+encode an `h264` video, you need to install a package with `x264` inside. To encode `vp8` or `vp9`
+videos, you need
 a `ffmpeg_kit_flutter` package with `libvpx` inside.
 
-`ffmpeg-kit` provides eight packages that include different sets of external libraries. These packages are named
+`ffmpeg-kit` provides eight packages that include different sets of external libraries. These
+packages are named
 according to the external libraries included. Refer to the
-[Packages](https://github.com/arthenica/ffmpeg-kit/wiki/Packages) wiki page to see the names of those
+[Packages](https://github.com/arthenica/ffmpeg-kit/wiki/Packages) wiki page to see the names of
+those
 packages and external libraries included in each one of them.
 
 #### 2.2 Installing Packages
 
-Installing `ffmpeg_kit_flutter` enables the `https` package by default. It is possible to install the other packages
+Installing `ffmpeg_kit_flutter` enables the `https` package by default. It is possible to install
+the other packages
 using the following dependency format.
 
 ```yaml
@@ -61,12 +71,14 @@ dependencies:
   ffmpeg_kit_flutter_<package name>: 6.0.3
 ```
 
-Note that hyphens in the package name must be replaced with underscores. Additionally, do not forget to use the package
+Note that hyphens in the package name must be replaced with underscores. Additionally, do not forget
+to use the package
 name in the import statements if you install a package.
 
 #### 2.3 Installing LTS Releases
 
-In order to install the `LTS` variant, append `-LTS` to the version you have for the `ffmpeg_kit_flutter` dependency.
+In order to install the `LTS` variant, append `-LTS` to the version you have for the
+`ffmpeg_kit_flutter` dependency.
 
 ```yaml
 dependencies:
@@ -75,14 +87,18 @@ dependencies:
 
 #### 2.4 LTS Releases
 
-`ffmpeg_kit_flutter` is published in two variants: `Main Release` and `LTS Release`. Both releases share the
-same source code but is built with different settings (Architectures, API Level, iOS Min SDK, etc.). Refer to the
-[LTS Releases](https://github.com/arthenica/ffmpeg-kit/wiki/LTS-Releases) wiki page to see how they differ from each
+`ffmpeg_kit_flutter` is published in two variants: `Main Release` and `LTS Release`. Both releases
+share the
+same source code but is built with different settings (Architectures, API Level, iOS Min SDK, etc.).
+Refer to the
+[LTS Releases](https://github.com/arthenica/ffmpeg-kit/wiki/LTS-Releases) wiki page to see how they
+differ from each
 other.
 
 #### 2.5 Platform Support
 
-The following table shows Android API level, iOS deployment target and macOS deployment target requirements in
+The following table shows Android API level, iOS deployment target and macOS deployment target
+requirements in
 `ffmpeg_kit_flutter` releases.
 
 <table>
@@ -138,7 +154,8 @@ The following table shows Android API level, iOS deployment target and macOS dep
     });
     ```
 
-2. Each `execute` call creates a new session. Access every detail about your execution from the session created.
+2. Each `execute` call creates a new session. Access every detail about your execution from the
+   session created.
 
     ```dart
     FFmpegKit.execute('-i file1.mp4 -c:v mpeg4 file2.mp4').then((session) async {
@@ -319,7 +336,8 @@ The following table shows Android API level, iOS deployment target and macOS dep
 
 ### 4. Test Application
 
-You can see how `FFmpegKit` is used inside an application by running `flutter` test applications developed under
+You can see how `FFmpegKit` is used inside an application by running `flutter` test applications
+developed under
 the [FFmpegKit Test](https://github.com/arthenica/ffmpeg-kit-test) project.
 
 ### 5. Tips

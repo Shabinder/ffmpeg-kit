@@ -25,11 +25,11 @@ package com.arthenica.ffmpegkit;
 @FunctionalInterface
 public interface LogCallback {
 
-    /**
-     * <p>Called when a log entry is received.
-     *
-     * @param log log entry
-     */
-    void apply(final Log log);
+  /**
+   * <p>Called when a log entry is received.
+   *
+   * @param log log entry
+   */
+  void apply(final Log log);
 
 }

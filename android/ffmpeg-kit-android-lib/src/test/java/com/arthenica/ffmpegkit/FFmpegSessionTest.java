@@ -26,321 +26,321 @@ import java.util.List;
 
 public class FFmpegSessionTest {
 
-    static final String[] TEST_ARGUMENTS = new String[]{"argument1", "argument2"};
+  static final String[] TEST_ARGUMENTS = new String[]{"argument1", "argument2"};
 
-    @Test
-    public void constructorTest() {
-        FFmpegSession ffmpegSession = FFmpegSession.create(TEST_ARGUMENTS);
+  @Test
+  public void constructorTest() {
+    FFmpegSession ffmpegSession = FFmpegSession.create(TEST_ARGUMENTS);
 
-        // 1. getCompleteCallback
-        Assert.assertNull(ffmpegSession.getCompleteCallback());
+    // 1. getCompleteCallback
+    Assert.assertNull(ffmpegSession.getCompleteCallback());
 
-        // 2. getLogCallback
-        Assert.assertNull(ffmpegSession.getLogCallback());
+    // 2. getLogCallback
+    Assert.assertNull(ffmpegSession.getLogCallback());
 
-        // 3. getStatisticsCallback
-        Assert.assertNull(ffmpegSession.getStatisticsCallback());
+    // 3. getStatisticsCallback
+    Assert.assertNull(ffmpegSession.getStatisticsCallback());
 
-        // 4. getSessionId
-        Assert.assertTrue(ffmpegSession.getSessionId() > 0);
+    // 4. getSessionId
+    Assert.assertTrue(ffmpegSession.getSessionId() > 0);
 
-        // 5. getCreateTime
-        Assert.assertTrue(ffmpegSession.getCreateTime().getTime() <= System.currentTimeMillis());
+    // 5. getCreateTime
+    Assert.assertTrue(ffmpegSession.getCreateTime().getTime() <= System.currentTimeMillis());
 
-        // 6. getStartTime
-        Assert.assertNull(ffmpegSession.getStartTime());
+    // 6. getStartTime
+    Assert.assertNull(ffmpegSession.getStartTime());
 
-        // 7. getEndTime
-        Assert.assertNull(ffmpegSession.getEndTime());
+    // 7. getEndTime
+    Assert.assertNull(ffmpegSession.getEndTime());
 
-        // 8. getDuration
-        Assert.assertEquals(0, ffmpegSession.getDuration());
+    // 8. getDuration
+    Assert.assertEquals(0, ffmpegSession.getDuration());
 
-        // 9. getArguments
-        Assert.assertArrayEquals(TEST_ARGUMENTS, ffmpegSession.getArguments());
+    // 9. getArguments
+    Assert.assertArrayEquals(TEST_ARGUMENTS, ffmpegSession.getArguments());
 
-        // 10. getCommand
-        StringBuilder commandBuilder = new StringBuilder();
-        for (int i = 0; i < TEST_ARGUMENTS.length; i++) {
-            if (i > 0) {
-                commandBuilder.append(" ");
-            }
-            commandBuilder.append(TEST_ARGUMENTS[i]);
-        }
-        Assert.assertEquals(commandBuilder.toString(), ffmpegSession.getCommand());
-
-        // 11. getLogs
-        Assert.assertEquals(0, ffmpegSession.getLogs().size());
-
-        // 12. getLogsAsString
-        Assert.assertEquals("", ffmpegSession.getLogsAsString());
-
-        // 13. getState
-        Assert.assertEquals(SessionState.CREATED, ffmpegSession.getState());
-
-        // 14. getState
-        Assert.assertNull(ffmpegSession.getReturnCode());
-
-        // 15. getFailStackTrace
-        Assert.assertNull(ffmpegSession.getFailStackTrace());
-
-        // 16. getLogRedirectionStrategy
-        Assert.assertEquals(FFmpegKitConfig.getLogRedirectionStrategy(), ffmpegSession.getLogRedirectionStrategy());
-
-        // 17. getFuture
-        Assert.assertNull(ffmpegSession.getFuture());
+    // 10. getCommand
+    StringBuilder commandBuilder = new StringBuilder();
+    for (int i = 0; i < TEST_ARGUMENTS.length; i++) {
+      if (i > 0) {
+        commandBuilder.append(" ");
+      }
+      commandBuilder.append(TEST_ARGUMENTS[i]);
     }
+    Assert.assertEquals(commandBuilder.toString(), ffmpegSession.getCommand());
 
-    @Test
-    public void constructorTest2() {
-        FFmpegSessionCompleteCallback completeCallback = new FFmpegSessionCompleteCallback() {
+    // 11. getLogs
+    Assert.assertEquals(0, ffmpegSession.getLogs().size());
 
-            @Override
-            public void apply(FFmpegSession session) {
-            }
-        };
+    // 12. getLogsAsString
+    Assert.assertEquals("", ffmpegSession.getLogsAsString());
 
-        FFmpegSession ffmpegSession = FFmpegSession.create(TEST_ARGUMENTS, completeCallback);
+    // 13. getState
+    Assert.assertEquals(SessionState.CREATED, ffmpegSession.getState());
 
-        // 1. getCompleteCallback
-        Assert.assertEquals(ffmpegSession.getCompleteCallback(), completeCallback);
+    // 14. getState
+    Assert.assertNull(ffmpegSession.getReturnCode());
 
-        // 2. getLogCallback
-        Assert.assertNull(ffmpegSession.getLogCallback());
+    // 15. getFailStackTrace
+    Assert.assertNull(ffmpegSession.getFailStackTrace());
 
-        // 3. getStatisticsCallback
-        Assert.assertNull(ffmpegSession.getStatisticsCallback());
+    // 16. getLogRedirectionStrategy
+    Assert.assertEquals(FFmpegKitConfig.getLogRedirectionStrategy(), ffmpegSession.getLogRedirectionStrategy());
 
-        // 4. getSessionId
-        Assert.assertTrue(ffmpegSession.getSessionId() > 0);
+    // 17. getFuture
+    Assert.assertNull(ffmpegSession.getFuture());
+  }
 
-        // 5. getCreateTime
-        Assert.assertTrue(ffmpegSession.getCreateTime().getTime() <= System.currentTimeMillis());
+  @Test
+  public void constructorTest2() {
+    FFmpegSessionCompleteCallback completeCallback = new FFmpegSessionCompleteCallback() {
 
-        // 6. getStartTime
-        Assert.assertNull(ffmpegSession.getStartTime());
+      @Override
+      public void apply(FFmpegSession session) {
+      }
+    };
 
-        // 7. getEndTime
-        Assert.assertNull(ffmpegSession.getEndTime());
+    FFmpegSession ffmpegSession = FFmpegSession.create(TEST_ARGUMENTS, completeCallback);
 
-        // 8. getDuration
-        Assert.assertEquals(0, ffmpegSession.getDuration());
+    // 1. getCompleteCallback
+    Assert.assertEquals(ffmpegSession.getCompleteCallback(), completeCallback);
 
-        // 9. getArguments
-        Assert.assertArrayEquals(TEST_ARGUMENTS, ffmpegSession.getArguments());
+    // 2. getLogCallback
+    Assert.assertNull(ffmpegSession.getLogCallback());
 
-        // 10. getCommand
-        StringBuilder commandBuilder = new StringBuilder();
-        for (int i = 0; i < TEST_ARGUMENTS.length; i++) {
-            if (i > 0) {
-                commandBuilder.append(" ");
-            }
-            commandBuilder.append(TEST_ARGUMENTS[i]);
-        }
-        Assert.assertEquals(commandBuilder.toString(), ffmpegSession.getCommand());
+    // 3. getStatisticsCallback
+    Assert.assertNull(ffmpegSession.getStatisticsCallback());
 
-        // 11. getLogs
-        Assert.assertEquals(0, ffmpegSession.getLogs().size());
+    // 4. getSessionId
+    Assert.assertTrue(ffmpegSession.getSessionId() > 0);
 
-        // 12. getLogsAsString
-        Assert.assertEquals("", ffmpegSession.getLogsAsString());
+    // 5. getCreateTime
+    Assert.assertTrue(ffmpegSession.getCreateTime().getTime() <= System.currentTimeMillis());
 
-        // 13. getState
-        Assert.assertEquals(SessionState.CREATED, ffmpegSession.getState());
+    // 6. getStartTime
+    Assert.assertNull(ffmpegSession.getStartTime());
 
-        // 14. getState
-        Assert.assertNull(ffmpegSession.getReturnCode());
+    // 7. getEndTime
+    Assert.assertNull(ffmpegSession.getEndTime());
 
-        // 15. getFailStackTrace
-        Assert.assertNull(ffmpegSession.getFailStackTrace());
+    // 8. getDuration
+    Assert.assertEquals(0, ffmpegSession.getDuration());
 
-        // 16. getLogRedirectionStrategy
-        Assert.assertEquals(FFmpegKitConfig.getLogRedirectionStrategy(), ffmpegSession.getLogRedirectionStrategy());
+    // 9. getArguments
+    Assert.assertArrayEquals(TEST_ARGUMENTS, ffmpegSession.getArguments());
 
-        // 17. getFuture
-        Assert.assertNull(ffmpegSession.getFuture());
+    // 10. getCommand
+    StringBuilder commandBuilder = new StringBuilder();
+    for (int i = 0; i < TEST_ARGUMENTS.length; i++) {
+      if (i > 0) {
+        commandBuilder.append(" ");
+      }
+      commandBuilder.append(TEST_ARGUMENTS[i]);
     }
+    Assert.assertEquals(commandBuilder.toString(), ffmpegSession.getCommand());
 
-    @Test
-    public void constructorTest3() {
-        FFmpegSessionCompleteCallback completeCallback = new FFmpegSessionCompleteCallback() {
+    // 11. getLogs
+    Assert.assertEquals(0, ffmpegSession.getLogs().size());
 
-            @Override
-            public void apply(FFmpegSession session) {
-            }
-        };
+    // 12. getLogsAsString
+    Assert.assertEquals("", ffmpegSession.getLogsAsString());
 
-        LogCallback logCallback = new LogCallback() {
-            @Override
-            public void apply(Log log) {
+    // 13. getState
+    Assert.assertEquals(SessionState.CREATED, ffmpegSession.getState());
 
-            }
-        };
+    // 14. getState
+    Assert.assertNull(ffmpegSession.getReturnCode());
 
-        StatisticsCallback statisticsCallback = new StatisticsCallback() {
-            @Override
-            public void apply(Statistics statistics) {
+    // 15. getFailStackTrace
+    Assert.assertNull(ffmpegSession.getFailStackTrace());
 
-            }
-        };
+    // 16. getLogRedirectionStrategy
+    Assert.assertEquals(FFmpegKitConfig.getLogRedirectionStrategy(), ffmpegSession.getLogRedirectionStrategy());
 
-        FFmpegSession ffmpegSession = FFmpegSession.create(TEST_ARGUMENTS, completeCallback, logCallback, statisticsCallback);
+    // 17. getFuture
+    Assert.assertNull(ffmpegSession.getFuture());
+  }
 
-        // 1. getCompleteCallback
-        Assert.assertEquals(ffmpegSession.getCompleteCallback(), completeCallback);
+  @Test
+  public void constructorTest3() {
+    FFmpegSessionCompleteCallback completeCallback = new FFmpegSessionCompleteCallback() {
 
-        // 2. getLogCallback
-        Assert.assertEquals(ffmpegSession.getLogCallback(), logCallback);
+      @Override
+      public void apply(FFmpegSession session) {
+      }
+    };
 
-        // 3. getStatisticsCallback
-        Assert.assertEquals(ffmpegSession.getStatisticsCallback(), statisticsCallback);
+    LogCallback logCallback = new LogCallback() {
+      @Override
+      public void apply(Log log) {
 
-        // 4. getSessionId
-        Assert.assertTrue(ffmpegSession.getSessionId() > 0);
+      }
+    };
 
-        // 5. getCreateTime
-        Assert.assertTrue(ffmpegSession.getCreateTime().getTime() <= System.currentTimeMillis());
+    StatisticsCallback statisticsCallback = new StatisticsCallback() {
+      @Override
+      public void apply(Statistics statistics) {
 
-        // 6. getStartTime
-        Assert.assertNull(ffmpegSession.getStartTime());
+      }
+    };
 
-        // 7. getEndTime
-        Assert.assertNull(ffmpegSession.getEndTime());
+    FFmpegSession ffmpegSession = FFmpegSession.create(TEST_ARGUMENTS, completeCallback, logCallback, statisticsCallback);
 
-        // 8. getDuration
-        Assert.assertEquals(0, ffmpegSession.getDuration());
+    // 1. getCompleteCallback
+    Assert.assertEquals(ffmpegSession.getCompleteCallback(), completeCallback);
 
-        // 9. getArguments
-        Assert.assertArrayEquals(TEST_ARGUMENTS, ffmpegSession.getArguments());
+    // 2. getLogCallback
+    Assert.assertEquals(ffmpegSession.getLogCallback(), logCallback);
 
-        // 10. getCommand
-        StringBuilder commandBuilder = new StringBuilder();
-        for (int i = 0; i < TEST_ARGUMENTS.length; i++) {
-            if (i > 0) {
-                commandBuilder.append(" ");
-            }
-            commandBuilder.append(TEST_ARGUMENTS[i]);
-        }
-        Assert.assertEquals(commandBuilder.toString(), ffmpegSession.getCommand());
+    // 3. getStatisticsCallback
+    Assert.assertEquals(ffmpegSession.getStatisticsCallback(), statisticsCallback);
 
-        // 11. getLogs
-        Assert.assertEquals(0, ffmpegSession.getLogs().size());
+    // 4. getSessionId
+    Assert.assertTrue(ffmpegSession.getSessionId() > 0);
 
-        // 12. getLogsAsString
-        Assert.assertEquals("", ffmpegSession.getLogsAsString());
+    // 5. getCreateTime
+    Assert.assertTrue(ffmpegSession.getCreateTime().getTime() <= System.currentTimeMillis());
 
-        // 13. getState
-        Assert.assertEquals(SessionState.CREATED, ffmpegSession.getState());
+    // 6. getStartTime
+    Assert.assertNull(ffmpegSession.getStartTime());
 
-        // 14. getState
-        Assert.assertNull(ffmpegSession.getReturnCode());
+    // 7. getEndTime
+    Assert.assertNull(ffmpegSession.getEndTime());
 
-        // 15. getFailStackTrace
-        Assert.assertNull(ffmpegSession.getFailStackTrace());
+    // 8. getDuration
+    Assert.assertEquals(0, ffmpegSession.getDuration());
 
-        // 16. getLogRedirectionStrategy
-        Assert.assertEquals(FFmpegKitConfig.getLogRedirectionStrategy(), ffmpegSession.getLogRedirectionStrategy());
+    // 9. getArguments
+    Assert.assertArrayEquals(TEST_ARGUMENTS, ffmpegSession.getArguments());
 
-        // 17. getFuture
-        Assert.assertNull(ffmpegSession.getFuture());
+    // 10. getCommand
+    StringBuilder commandBuilder = new StringBuilder();
+    for (int i = 0; i < TEST_ARGUMENTS.length; i++) {
+      if (i > 0) {
+        commandBuilder.append(" ");
+      }
+      commandBuilder.append(TEST_ARGUMENTS[i]);
     }
+    Assert.assertEquals(commandBuilder.toString(), ffmpegSession.getCommand());
 
-    @Test
-    public void getSessionIdTest() {
-        FFmpegSession ffmpegSession1 = FFmpegSession.create(TEST_ARGUMENTS);
-        FFmpegSession ffmpegSession2 = FFmpegSession.create(TEST_ARGUMENTS);
-        FFmpegSession ffmpegSession3 = FFmpegSession.create(TEST_ARGUMENTS);
+    // 11. getLogs
+    Assert.assertEquals(0, ffmpegSession.getLogs().size());
 
-        Assert.assertTrue(ffmpegSession3.getSessionId() > ffmpegSession2.getSessionId());
-        Assert.assertTrue(ffmpegSession3.getSessionId() > ffmpegSession1.getSessionId());
-        Assert.assertTrue(ffmpegSession2.getSessionId() > ffmpegSession1.getSessionId());
+    // 12. getLogsAsString
+    Assert.assertEquals("", ffmpegSession.getLogsAsString());
 
-        Assert.assertTrue(ffmpegSession1.getSessionId() > 0);
-        Assert.assertTrue(ffmpegSession2.getSessionId() > 0);
-        Assert.assertTrue(ffmpegSession3.getSessionId() > 0);
-    }
+    // 13. getState
+    Assert.assertEquals(SessionState.CREATED, ffmpegSession.getState());
 
-    @Test
-    public void getLogs() {
-        final FFmpegSession ffmpegSession = FFmpegSession.create(TEST_ARGUMENTS);
+    // 14. getState
+    Assert.assertNull(ffmpegSession.getReturnCode());
 
-        String logMessage1 = "i am log one";
-        String logMessage2 = "i am log two";
-        String logMessage3 = "i am log three";
+    // 15. getFailStackTrace
+    Assert.assertNull(ffmpegSession.getFailStackTrace());
 
-        ffmpegSession.addLog(new Log(ffmpegSession.getSessionId(), Level.AV_LOG_INFO, logMessage1));
-        ffmpegSession.addLog(new Log(ffmpegSession.getSessionId(), Level.AV_LOG_DEBUG, logMessage2));
-        ffmpegSession.addLog(new Log(ffmpegSession.getSessionId(), Level.AV_LOG_TRACE, logMessage3));
+    // 16. getLogRedirectionStrategy
+    Assert.assertEquals(FFmpegKitConfig.getLogRedirectionStrategy(), ffmpegSession.getLogRedirectionStrategy());
 
-        List<Log> logs = ffmpegSession.getLogs();
+    // 17. getFuture
+    Assert.assertNull(ffmpegSession.getFuture());
+  }
 
-        Assert.assertEquals(3, logs.size());
-    }
+  @Test
+  public void getSessionIdTest() {
+    FFmpegSession ffmpegSession1 = FFmpegSession.create(TEST_ARGUMENTS);
+    FFmpegSession ffmpegSession2 = FFmpegSession.create(TEST_ARGUMENTS);
+    FFmpegSession ffmpegSession3 = FFmpegSession.create(TEST_ARGUMENTS);
 
-    @Test
-    public void getLogsAsStringTest() {
-        final FFmpegSession ffmpegSession = FFmpegSession.create(TEST_ARGUMENTS);
+    Assert.assertTrue(ffmpegSession3.getSessionId() > ffmpegSession2.getSessionId());
+    Assert.assertTrue(ffmpegSession3.getSessionId() > ffmpegSession1.getSessionId());
+    Assert.assertTrue(ffmpegSession2.getSessionId() > ffmpegSession1.getSessionId());
 
-        String logMessage1 = "i am log one";
-        String logMessage2 = "i am log two";
+    Assert.assertTrue(ffmpegSession1.getSessionId() > 0);
+    Assert.assertTrue(ffmpegSession2.getSessionId() > 0);
+    Assert.assertTrue(ffmpegSession3.getSessionId() > 0);
+  }
 
-        ffmpegSession.addLog(new Log(ffmpegSession.getSessionId(), Level.AV_LOG_DEBUG, logMessage1));
-        ffmpegSession.addLog(new Log(ffmpegSession.getSessionId(), Level.AV_LOG_DEBUG, logMessage2));
+  @Test
+  public void getLogs() {
+    final FFmpegSession ffmpegSession = FFmpegSession.create(TEST_ARGUMENTS);
 
-        String logsAsString = ffmpegSession.getLogsAsString();
+    String logMessage1 = "i am log one";
+    String logMessage2 = "i am log two";
+    String logMessage3 = "i am log three";
 
-        Assert.assertEquals(logMessage1 + logMessage2, logsAsString);
-    }
+    ffmpegSession.addLog(new Log(ffmpegSession.getSessionId(), Level.AV_LOG_INFO, logMessage1));
+    ffmpegSession.addLog(new Log(ffmpegSession.getSessionId(), Level.AV_LOG_DEBUG, logMessage2));
+    ffmpegSession.addLog(new Log(ffmpegSession.getSessionId(), Level.AV_LOG_TRACE, logMessage3));
 
-    @Test
-    public void getLogRedirectionStrategy() {
-        FFmpegKitConfig.setLogRedirectionStrategy(LogRedirectionStrategy.NEVER_PRINT_LOGS);
+    List<Log> logs = ffmpegSession.getLogs();
 
-        final FFmpegSession ffmpegSession1 = FFmpegSession.create(TEST_ARGUMENTS);
-        Assert.assertEquals(FFmpegKitConfig.getLogRedirectionStrategy(), ffmpegSession1.getLogRedirectionStrategy());
+    Assert.assertEquals(3, logs.size());
+  }
 
-        FFmpegKitConfig.setLogRedirectionStrategy(LogRedirectionStrategy.PRINT_LOGS_WHEN_SESSION_CALLBACK_NOT_DEFINED);
+  @Test
+  public void getLogsAsStringTest() {
+    final FFmpegSession ffmpegSession = FFmpegSession.create(TEST_ARGUMENTS);
 
-        final FFmpegSession ffmpegSession2 = FFmpegSession.create(TEST_ARGUMENTS);
-        Assert.assertEquals(FFmpegKitConfig.getLogRedirectionStrategy(), ffmpegSession2.getLogRedirectionStrategy());
-    }
+    String logMessage1 = "i am log one";
+    String logMessage2 = "i am log two";
 
-    @Test
-    public void startRunningTest() {
-        FFmpegSession ffmpegSession = FFmpegSession.create(TEST_ARGUMENTS);
+    ffmpegSession.addLog(new Log(ffmpegSession.getSessionId(), Level.AV_LOG_DEBUG, logMessage1));
+    ffmpegSession.addLog(new Log(ffmpegSession.getSessionId(), Level.AV_LOG_DEBUG, logMessage2));
 
-        ffmpegSession.startRunning();
+    String logsAsString = ffmpegSession.getLogsAsString();
 
-        Assert.assertEquals(SessionState.RUNNING, ffmpegSession.getState());
-        Assert.assertTrue(ffmpegSession.getStartTime().getTime() <= System.currentTimeMillis());
-        Assert.assertTrue(ffmpegSession.getCreateTime().getTime() <= ffmpegSession.getStartTime().getTime());
-    }
+    Assert.assertEquals(logMessage1 + logMessage2, logsAsString);
+  }
 
-    @Test
-    public void completeTest() {
-        FFmpegSession ffmpegSession = FFmpegSession.create(TEST_ARGUMENTS);
+  @Test
+  public void getLogRedirectionStrategy() {
+    FFmpegKitConfig.setLogRedirectionStrategy(LogRedirectionStrategy.NEVER_PRINT_LOGS);
 
-        ffmpegSession.startRunning();
-        ffmpegSession.complete(new ReturnCode(100));
+    final FFmpegSession ffmpegSession1 = FFmpegSession.create(TEST_ARGUMENTS);
+    Assert.assertEquals(FFmpegKitConfig.getLogRedirectionStrategy(), ffmpegSession1.getLogRedirectionStrategy());
 
-        Assert.assertEquals(SessionState.COMPLETED, ffmpegSession.getState());
-        Assert.assertEquals(100, ffmpegSession.getReturnCode().getValue());
-        Assert.assertTrue(ffmpegSession.getStartTime().getTime() <= ffmpegSession.getEndTime().getTime());
-        Assert.assertTrue(ffmpegSession.getDuration() >= 0);
-    }
+    FFmpegKitConfig.setLogRedirectionStrategy(LogRedirectionStrategy.PRINT_LOGS_WHEN_SESSION_CALLBACK_NOT_DEFINED);
 
-    @Test
-    public void failTest() {
-        FFmpegSession ffmpegSession = FFmpegSession.create(TEST_ARGUMENTS);
+    final FFmpegSession ffmpegSession2 = FFmpegSession.create(TEST_ARGUMENTS);
+    Assert.assertEquals(FFmpegKitConfig.getLogRedirectionStrategy(), ffmpegSession2.getLogRedirectionStrategy());
+  }
 
-        ffmpegSession.startRunning();
-        ffmpegSession.fail(new Exception(""));
+  @Test
+  public void startRunningTest() {
+    FFmpegSession ffmpegSession = FFmpegSession.create(TEST_ARGUMENTS);
 
-        Assert.assertEquals(SessionState.FAILED, ffmpegSession.getState());
-        Assert.assertNull(ffmpegSession.getReturnCode());
-        Assert.assertTrue(ffmpegSession.getStartTime().getTime() <= ffmpegSession.getEndTime().getTime());
-        Assert.assertTrue(ffmpegSession.getDuration() >= 0);
-        Assert.assertNotNull(ffmpegSession.getFailStackTrace());
-    }
+    ffmpegSession.startRunning();
+
+    Assert.assertEquals(SessionState.RUNNING, ffmpegSession.getState());
+    Assert.assertTrue(ffmpegSession.getStartTime().getTime() <= System.currentTimeMillis());
+    Assert.assertTrue(ffmpegSession.getCreateTime().getTime() <= ffmpegSession.getStartTime().getTime());
+  }
+
+  @Test
+  public void completeTest() {
+    FFmpegSession ffmpegSession = FFmpegSession.create(TEST_ARGUMENTS);
+
+    ffmpegSession.startRunning();
+    ffmpegSession.complete(new ReturnCode(100));
+
+    Assert.assertEquals(SessionState.COMPLETED, ffmpegSession.getState());
+    Assert.assertEquals(100, ffmpegSession.getReturnCode().getValue());
+    Assert.assertTrue(ffmpegSession.getStartTime().getTime() <= ffmpegSession.getEndTime().getTime());
+    Assert.assertTrue(ffmpegSession.getDuration() >= 0);
+  }
+
+  @Test
+  public void failTest() {
+    FFmpegSession ffmpegSession = FFmpegSession.create(TEST_ARGUMENTS);
+
+    ffmpegSession.startRunning();
+    ffmpegSession.fail(new Exception(""));
+
+    Assert.assertEquals(SessionState.FAILED, ffmpegSession.getState());
+    Assert.assertNull(ffmpegSession.getReturnCode());
+    Assert.assertTrue(ffmpegSession.getStartTime().getTime() <= ffmpegSession.getEndTime().getTime());
+    Assert.assertTrue(ffmpegSession.getDuration() >= 0);
+    Assert.assertNotNull(ffmpegSession.getFailStackTrace());
+  }
 
 }

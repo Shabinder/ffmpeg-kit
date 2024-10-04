@@ -25,11 +25,11 @@ package com.arthenica.ffmpegkit;
 @FunctionalInterface
 public interface FFmpegSessionCompleteCallback {
 
-    /**
-     * <p>Called when an FFmpeg session has ended.
-     *
-     * @param session FFmpeg session
-     */
-    void apply(final FFmpegSession session);
+  /**
+   * <p>Called when an FFmpeg session has ended.
+   *
+   * @param session FFmpeg session
+   */
+  void apply(final FFmpegSession session);
 
 }

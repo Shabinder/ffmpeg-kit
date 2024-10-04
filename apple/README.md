@@ -1,9 +1,12 @@
 # FFmpegKit for iOS, macOS and tvOS
 
 ### 1. Features
+
 #### 1.1 iOS
+
 - Supports `iOS SDK 12.1+` on Main releases and `iOS SDK 10+` on LTS releases
-- Includes `armv7`, `armv7s`, `arm64`, `arm64-simulator`, `arm64e`, `i386`, `x86_64`, `x86_64-mac-catalyst` and 
+- Includes `armv7`, `armv7s`, `arm64`, `arm64-simulator`, `arm64e`, `i386`, `x86_64`,
+  `x86_64-mac-catalyst` and
   `arm64-mac-catalyst` architectures
 - Objective-C API
 - Camera access
@@ -12,6 +15,7 @@
 - Creates shared `frameworks` and `xcframeworks`
 
 #### 1.2 macOS
+
 - Supports `macOS SDK 10.15+` on Main releases and `macOS SDK 10.12+` on LTS releases
 - Includes `arm64` and `x86_64` architectures
 - Objective-C API
@@ -20,6 +24,7 @@
 - Creates shared `frameworks` and `xcframeworks`
 
 #### 1.3 tvOS
+
 - Supports `tvOS SDK 11.0+` on Main releases and `tvOS SDK 10.0+` on LTS releases
 - Includes `arm64`, `arm64-simulator` and `x86_64` architectures
 - Objective-C API
@@ -29,13 +34,16 @@
 
 ### 2. Building
 
-Run `ios.sh`/`macos.sh`/`tvos.sh` inside the project root to build `ffmpeg-kit` and `ffmpeg` shared libraries
+Run `ios.sh`/`macos.sh`/`tvos.sh` inside the project root to build `ffmpeg-kit` and `ffmpeg` shared
+libraries
 for a platform.
 
 Optionally, use `apple.sh` to combine bundles created by these three scripts in a single bundle.
 
-Please note that `FFmpegKit` project repository includes the source code of `FFmpegKit` only. `ios.sh`, `macos.sh` and 
-`tvos.sh` need network connectivity and internet access to `github.com` in order to download the source code of
+Please note that `FFmpegKit` project repository includes the source code of `FFmpegKit` only.
+`ios.sh`, `macos.sh` and
+`tvos.sh` need network connectivity and internet access to `github.com` in order to download the
+source code of
 `FFmpeg` and external libraries enabled.
 
 #### 2.1 Prerequisites
@@ -91,34 +99,41 @@ Use `--lts` option to build lts binaries for each architecture.
 
 All libraries created can be found under the `prebuilt` directory.
 
-- `iOS` `xcframeworks` for `Main` builds are located under the `bundle-apple-xcframework-ios` folder.
-- `macOS` `xcframeworks` for `Main` builds are located under the `bundle-apple-xcframework-macos` folder.
-- `tvOS` `xcframeworks` for `Main` builds are located under the `bundle-apple-xcframework-tvos` folder.
+- `iOS` `xcframeworks` for `Main` builds are located under the `bundle-apple-xcframework-ios`
+  folder.
+- `macOS` `xcframeworks` for `Main` builds are located under the `bundle-apple-xcframework-macos`
+  folder.
+- `tvOS` `xcframeworks` for `Main` builds are located under the `bundle-apple-xcframework-tvos`
+  folder.
 - `iOS` `frameworks` for `Main` builds are located under the `bundle-apple-framework-ios` folder.
 - `iOS` `frameworks` for `LTS` builds are located under the `bundle-apple-framework-ios-lts` folder.
-- `macOS` `frameworks` for `Main` builds are located under the `bundle-apple-framework-macos` folder.
-- `macOS` `frameworks` for `LTS` builds are located under the `bundle-apple-framework-macos-lts` folder.
+- `macOS` `frameworks` for `Main` builds are located under the `bundle-apple-framework-macos`
+  folder.
+- `macOS` `frameworks` for `LTS` builds are located under the `bundle-apple-framework-macos-lts`
+  folder.
 - `tvOS` `frameworks` for `Main` builds are located under the `bundle-apple-framework-tvos` folder.
-- `tvOS` `frameworks` for `LTS` builds are located under the `bundle-apple-framework-tvos-lts` folder.
+- `tvOS` `frameworks` for `LTS` builds are located under the `bundle-apple-framework-tvos-lts`
+  folder.
 
 ### 3. Using
 
 #### 3.1 Objective API
 
-1. Add `FFmpegKit` dependency to your `Podfile` in `ffmpeg-kit-<platform>-<package name>` pattern. Use one of the 
+1. Add `FFmpegKit` dependency to your `Podfile` in `ffmpeg-kit-<platform>-<package name>` pattern.
+   Use one of the
    `FFmpegKit` package names given in the project [README](https://github.com/arthenica/ffmpeg-kit).
 
-    - iOS
+  - iOS
     ```yaml
     pod 'ffmpeg-kit-ios-full', '~> 6.0'
     ```
 
-    - macOS
+  - macOS
     ```yaml
     pod 'ffmpeg-kit-macos-full', '~> 6.0'
     ```
 
-    - tvOS
+  - tvOS
     ```yaml
     pod 'ffmpeg-kit-tvos-full', '~> 6.0'
     ```
@@ -146,7 +161,8 @@ All libraries created can be found under the `prebuilt` directory.
     }
     ```
 
-3. Each `execute` call (sync or async) creates a new session. Access every detail about your execution from the
+3. Each `execute` call (sync or async) creates a new session. Access every detail about your
+   execution from the
    session created.
 
     ```objectivec
@@ -160,7 +176,7 @@ All libraries created can be found under the `prebuilt` directory.
 
     // Command arguments
     NSArray *arguments = [session getArguments];
-   
+
     // State of the execution. Shows whether it is still running or completed
     SessionState state = [session getState];
 
@@ -184,7 +200,8 @@ All libraries created can be found under the `prebuilt` directory.
     NSArray *statistics = [session getStatistics];
     ```
 
-4. Execute asynchronous `FFmpeg` commands by providing session specific `execute`/`log`/`session` callbacks.
+4. Execute asynchronous `FFmpeg` commands by providing session specific `execute`/`log`/`session`
+   callbacks.
 
     ```objectivec
     FFmpegSession* session = [FFmpegKit executeAsync:@"-i file1.mp4 -c:v mpeg4 file2.mp4" withCompleteCallback:^(FFmpegSession* session){
@@ -208,7 +225,7 @@ All libraries created can be found under the `prebuilt` directory.
 
 5. Execute `FFprobe` commands.
 
-    - Synchronous
+  - Synchronous
 
     ```objectivec
     FFprobeSession *session = [FFprobeKit execute:ffprobeCommand];
@@ -218,7 +235,7 @@ All libraries created can be found under the `prebuilt` directory.
     }
     ```
 
-   - Asynchronous
+  - Asynchronous
 
     ```objectivec
     [FFprobeKit executeAsync:ffmpegCommand withCompleteCallback:^(FFprobeSession* session) {
@@ -237,14 +254,14 @@ All libraries created can be found under the `prebuilt` directory.
 
 7. Stop ongoing `FFmpeg` operations.
 
-   - Stop all executions
-       ```objectivec
-       [FFmpegKit cancel];
-       ```
-   - Stop a specific session
-       ```objectivec
-       [FFmpegKit cancel:sessionId];
-       ```
+  - Stop all executions
+      ```objectivec
+      [FFmpegKit cancel];
+      ```
+  - Stop a specific session
+      ```objectivec
+      [FFmpegKit cancel:sessionId];
+      ```
 
 8. Get previous `FFmpeg` and `FFprobe` sessions from session history.
 
@@ -264,39 +281,40 @@ All libraries created can be found under the `prebuilt` directory.
 
 9. Enable global callbacks.
 
-    - Session type specific Complete Callbacks, called when an async session has been completed
+  - Session type specific Complete Callbacks, called when an async session has been completed
 
-        ```objectivec
-        [FFmpegKitConfig enableFFmpegSessionCompleteCallback:^(FFmpegSession* session) {
-            ...
-        }];
+      ```objectivec
+      [FFmpegKitConfig enableFFmpegSessionCompleteCallback:^(FFmpegSession* session) {
+          ...
+      }];
 
-        [FFmpegKitConfig enableFFprobeSessionCompleteCallback:^(FFprobeSession* session) {
-            ...
-        }];
+      [FFmpegKitConfig enableFFprobeSessionCompleteCallback:^(FFprobeSession* session) {
+          ...
+      }];
 
-        [FFmpegKitConfig enableMediaInformationSessionCompleteCallback:^(MediaInformationSession* session) {
-            ...
-        }];
-        ```
+      [FFmpegKitConfig enableMediaInformationSessionCompleteCallback:^(MediaInformationSession* session) {
+          ...
+      }];
+      ```
 
-    - Log Callback, called when a session generates logs
+  - Log Callback, called when a session generates logs
 
-        ```objectivec
-        [FFmpegKitConfig enableLogCallback:^(Log *log) {
-            ...
-        }];
-        ```
+      ```objectivec
+      [FFmpegKitConfig enableLogCallback:^(Log *log) {
+          ...
+      }];
+      ```
 
-    - Statistics Callback, called when a session generates statistics
+  - Statistics Callback, called when a session generates statistics
 
-        ```objectivec
-        [FFmpegKitConfig enableStatisticsCallback:^(Statistics *statistics) {
-            ...
-        }];
-        ```
+      ```objectivec
+      [FFmpegKitConfig enableStatisticsCallback:^(Statistics *statistics) {
+          ...
+      }];
+      ```
 
-10. Ignore the handling of a signal. Required by `Mono` and frameworks that use `Mono`, e.g. `Unity` and `Xamarin`.
+10. Ignore the handling of a signal. Required by `Mono` and frameworks that use `Mono`, e.g. `Unity`
+    and `Xamarin`.
 
     ```objectivec
     [FFmpegKitConfig ignoreSignal:SIGXCPU];
@@ -310,5 +328,6 @@ All libraries created can be found under the `prebuilt` directory.
 
 ### 4. Test Application
 
-You can see how `FFmpegKit` is used inside an application by running `iOS`, `macOS` and `tvOS` test applications 
+You can see how `FFmpegKit` is used inside an application by running `iOS`, `macOS` and `tvOS` test
+applications
 developed under the [FFmpegKit Test](https://github.com/arthenica/ffmpeg-kit-test) project.

@@ -134,10 +134,289 @@ public class FFmpegKitReactNativeModule extends ReactContextBaseJavaModule {
     }
   }
 
+  protected static int toInt(final Level level) {
+    return (level == null) ? Level.AV_LOG_TRACE.getValue() : level.getValue();
+  }
+
+  protected static WritableMap toMap(final Session session) {
+    if (session == null) {
+      return null;
+    }
+
+    final WritableMap sessionMap = Arguments.createMap();
+
+    sessionMap.putDouble(KEY_SESSION_ID, session.getSessionId());
+    sessionMap.putDouble(KEY_SESSION_CREATE_TIME, toLong(session.getCreateTime()));
+    sessionMap.putDouble(KEY_SESSION_START_TIME, toLong(session.getStartTime()));
+    sessionMap.putString(KEY_SESSION_COMMAND, session.getCommand());
+
+    if (session.isFFmpeg()) {
+      sessionMap.putDouble(KEY_SESSION_TYPE, SESSION_TYPE_FFMPEG);
+    } else if (session.isFFprobe()) {
+      sessionMap.putDouble(KEY_SESSION_TYPE, SESSION_TYPE_FFPROBE);
+    } else if (session.isMediaInformation()) {
+      final MediaInformationSession mediaInformationSession = (MediaInformationSession) session;
+      final MediaInformation mediaInformation = mediaInformationSession.getMediaInformation();
+      if (mediaInformation != null) {
+        sessionMap.putMap(KEY_SESSION_MEDIA_INFORMATION, toMap(mediaInformation));
+      }
+      sessionMap.putDouble(KEY_SESSION_TYPE, SESSION_TYPE_MEDIA_INFORMATION);
+    }
+
+    return sessionMap;
+  }
+
+  protected static long toLong(final Date date) {
+    if (date != null) {
+      return date.getTime();
+    } else {
+      return 0;
+    }
+  }
+
+  protected static int toInt(final LogRedirectionStrategy logRedirectionStrategy) {
+    switch (logRedirectionStrategy) {
+      case ALWAYS_PRINT_LOGS:
+        return 0;
+      case PRINT_LOGS_WHEN_NO_CALLBACKS_DEFINED:
+        return 1;
+      case PRINT_LOGS_WHEN_GLOBAL_CALLBACK_NOT_DEFINED:
+        return 2;
+      case PRINT_LOGS_WHEN_SESSION_CALLBACK_NOT_DEFINED:
+        return 3;
+      case NEVER_PRINT_LOGS:
+      default:
+        return 4;
+    }
+  }
+
+  // AbstractSession
+
+  protected static LogRedirectionStrategy toLogRedirectionStrategy(final int value) {
+    switch (value) {
+      case 0:
+        return LogRedirectionStrategy.ALWAYS_PRINT_LOGS;
+      case 1:
+        return LogRedirectionStrategy.PRINT_LOGS_WHEN_NO_CALLBACKS_DEFINED;
+      case 2:
+        return LogRedirectionStrategy.PRINT_LOGS_WHEN_GLOBAL_CALLBACK_NOT_DEFINED;
+      case 3:
+        return LogRedirectionStrategy.PRINT_LOGS_WHEN_SESSION_CALLBACK_NOT_DEFINED;
+      case 4:
+      default:
+        return LogRedirectionStrategy.NEVER_PRINT_LOGS;
+    }
+  }
+
+  protected static SessionState toSessionState(final int value) {
+    switch (value) {
+      case 0:
+        return SessionState.CREATED;
+      case 1:
+        return SessionState.RUNNING;
+      case 2:
+        return SessionState.FAILED;
+      case 3:
+      default:
+        return SessionState.COMPLETED;
+    }
+  }
+
+  protected static WritableArray toStringArray(final List<String> list) {
+    final WritableArray array = Arguments.createArray();
+
+    if (list != null) {
+      for (String item : list) {
+        array.pushString(item);
+      }
+    }
+
+    return array;
+  }
+
+  protected static Map<String, String> toMap(final ReadableMap readableMap) {
+    final Map<String, String> map = new HashMap<>();
+
+    if (readableMap != null) {
+      final ReadableMapKeySetIterator iterator = readableMap.keySetIterator();
+      while (iterator.hasNextKey()) {
+        final String key = iterator.nextKey();
+        final ReadableType type = readableMap.getType(key);
+
+        if (type == ReadableType.String) {
+          map.put(key, readableMap.getString(key));
+        }
+      }
+    }
+
+    return map;
+  }
+
+  protected static WritableMap toMap(final com.arthenica.ffmpegkit.Log log) {
+    final WritableMap logMap = Arguments.createMap();
+
+    logMap.putDouble(KEY_LOG_SESSION_ID, log.getSessionId());
+    logMap.putDouble(KEY_LOG_LEVEL, toInt(log.getLevel()));
+    logMap.putString(KEY_LOG_MESSAGE, log.getMessage());
+
+    return logMap;
+  }
+
+  protected static WritableMap toMap(final Statistics statistics) {
+    final WritableMap statisticsMap = Arguments.createMap();
+
+    if (statistics != null) {
+      statisticsMap.putDouble(KEY_STATISTICS_SESSION_ID, statistics.getSessionId());
+      statisticsMap.putDouble(KEY_STATISTICS_VIDEO_FRAME_NUMBER, statistics.getVideoFrameNumber());
+      statisticsMap.putDouble(KEY_STATISTICS_VIDEO_FPS, statistics.getVideoFps());
+      statisticsMap.putDouble(KEY_STATISTICS_VIDEO_QUALITY, statistics.getVideoQuality());
+      statisticsMap.putDouble(KEY_STATISTICS_SIZE, statistics.getSize());
+      statisticsMap.putDouble(KEY_STATISTICS_TIME, statistics.getTime());
+      statisticsMap.putDouble(KEY_STATISTICS_BITRATE, statistics.getBitrate());
+      statisticsMap.putDouble(KEY_STATISTICS_SPEED, statistics.getSpeed());
+    }
+
+    return statisticsMap;
+  }
+
+  protected static WritableMap toMap(final MediaInformation mediaInformation) {
+    if (mediaInformation != null) {
+      WritableMap map = Arguments.createMap();
+
+      JSONObject allProperties = mediaInformation.getAllProperties();
+      if (allProperties != null) {
+        map = toMap(allProperties);
+      }
+
+      return map;
+    } else {
+      return null;
+    }
+  }
+
+  protected static WritableMap toMap(final JSONObject jsonObject) {
+    final WritableMap map = Arguments.createMap();
+
+    if (jsonObject != null) {
+      Iterator<String> keys = jsonObject.keys();
+      while (keys.hasNext()) {
+        String key = keys.next();
+        Object value = jsonObject.opt(key);
+        if (value != null) {
+          if (value instanceof JSONArray) {
+            map.putArray(key, toList((JSONArray) value));
+          } else if (value instanceof JSONObject) {
+            map.putMap(key, toMap((JSONObject) value));
+          } else if (value instanceof String) {
+            map.putString(key, (String) value);
+          } else if (value instanceof Number) {
+            if (value instanceof Integer) {
+              map.putInt(key, (Integer) value);
+            } else {
+              map.putDouble(key, ((Number) value).doubleValue());
+            }
+          } else if (value instanceof Boolean) {
+            map.putBoolean(key, (Boolean) value);
+          } else {
+            Log.i(LIBRARY_NAME, String.format("Cannot map json key %s using value %s:%s", key, value.toString(), value.getClass().toString()));
+          }
+        }
+      }
+    }
+
+    return map;
+  }
+
+  protected static WritableArray toList(final JSONArray array) {
+    final WritableArray list = Arguments.createArray();
+
+    for (int i = 0; i < array.length(); i++) {
+      Object value = array.opt(i);
+      if (value != null) {
+        if (value instanceof JSONArray) {
+          list.pushArray(toList((JSONArray) value));
+        } else if (value instanceof JSONObject) {
+          list.pushMap(toMap((JSONObject) value));
+        } else if (value instanceof String) {
+          list.pushString((String) value);
+        } else if (value instanceof Number) {
+          if (value instanceof Integer) {
+            list.pushInt((Integer) value);
+          } else {
+            list.pushDouble(((Number) value).doubleValue());
+          }
+        } else if (value instanceof Boolean) {
+          list.pushBoolean((Boolean) value);
+        } else {
+          Log.i(LIBRARY_NAME, String.format("Cannot map json value %s:%s", value.toString(), value.getClass().toString()));
+        }
+      }
+    }
+
+    return list;
+  }
+
+  // ArchDetect
+
+  protected static String[] toArgumentsArray(final ReadableArray readableArray) {
+    final List<String> arguments = new ArrayList<>();
+    for (int i = 0; i < readableArray.size(); i++) {
+      final ReadableType type = readableArray.getType(i);
+
+      if (type == ReadableType.String) {
+        arguments.add(readableArray.getString(i));
+      }
+    }
+
+    return arguments.toArray(new String[0]);
+  }
+
+  // FFmpegSession
+
+  protected static WritableArray toSessionArray(final List<? extends Session> sessionList) {
+    final WritableArray sessionArray = Arguments.createArray();
+
+    for (int i = 0; i < sessionList.size(); i++) {
+      sessionArray.pushMap(toMap(sessionList.get(i)));
+    }
+
+    return sessionArray;
+  }
+
+  protected static WritableArray toLogArray(final List<com.arthenica.ffmpegkit.Log> logList) {
+    final WritableArray logArray = Arguments.createArray();
+
+    for (int i = 0; i < logList.size(); i++) {
+      logArray.pushMap(toMap(logList.get(i)));
+    }
+
+    return logArray;
+  }
+
+  protected static WritableArray toStatisticsArray(final List<com.arthenica.ffmpegkit.Statistics> statisticsList) {
+    final WritableArray statisticsArray = Arguments.createArray();
+
+    for (int i = 0; i < statisticsList.size(); i++) {
+      statisticsArray.pushMap(toMap(statisticsList.get(i)));
+    }
+
+    return statisticsArray;
+  }
+
+  // FFprobeSession
+
+  protected static boolean isValidPositiveNumber(final Double value) {
+    return (value != null) && (value.intValue() >= 0);
+  }
+
+  // MediaInformationSession
+
   @ReactMethod
   public void addListener(final String eventName) {
     Log.i(LIBRARY_NAME, String.format("Listener added for %s event.", eventName));
   }
+
+  // MediaInformationJsonParser
 
   @ReactMethod
   public void removeListeners(Integer count) {
@@ -148,6 +427,8 @@ public class FFmpegKitReactNativeModule extends ReactContextBaseJavaModule {
   public String getName() {
     return "FFmpegKitReactNativeModule";
   }
+
+  // FFmpegKitConfig
 
   protected void registerGlobalCallbacks(final ReactApplicationContext reactContext) {
     FFmpegKitConfig.enableFFmpegSessionCompleteCallback(session -> {
@@ -179,8 +460,6 @@ public class FFmpegKitReactNativeModule extends ReactContextBaseJavaModule {
       }
     });
   }
-
-  // AbstractSession
 
   @ReactMethod
   public void abstractSessionGetEndTime(final Double sessionId, final Promise promise) {
@@ -333,14 +612,10 @@ public class FFmpegKitReactNativeModule extends ReactContextBaseJavaModule {
     }
   }
 
-  // ArchDetect
-
   @ReactMethod
   public void getArch(final Promise promise) {
     promise.resolve(AbiDetect.getAbi());
   }
-
-  // FFmpegSession
 
   @ReactMethod
   public void ffmpegSession(final ReadableArray readableArray, final Promise promise) {
@@ -391,21 +666,15 @@ public class FFmpegKitReactNativeModule extends ReactContextBaseJavaModule {
     }
   }
 
-  // FFprobeSession
-
   @ReactMethod
   public void ffprobeSession(final ReadableArray readableArray, final Promise promise) {
     promise.resolve(toMap(FFprobeSession.create(toArgumentsArray(readableArray), null, null, LogRedirectionStrategy.NEVER_PRINT_LOGS)));
   }
 
-  // MediaInformationSession
-
   @ReactMethod
   public void mediaInformationSession(final ReadableArray readableArray, final Promise promise) {
     promise.resolve(toMap(MediaInformationSession.create(toArgumentsArray(readableArray), null, null)));
   }
-
-  // MediaInformationJsonParser
 
   @ReactMethod
   public void mediaInformationJsonParserFrom(final String ffprobeJsonOutput, final Promise promise) {
@@ -428,8 +697,6 @@ public class FFmpegKitReactNativeModule extends ReactContextBaseJavaModule {
       promise.reject("PARSE_FAILED", "Parsing MediaInformation failed with JSON error.");
     }
   }
-
-  // FFmpegKitConfig
 
   @ReactMethod
   public void enableRedirection(final Promise promise) {
@@ -669,6 +936,8 @@ public class FFmpegKitReactNativeModule extends ReactContextBaseJavaModule {
     }
   }
 
+  // FFmpegKit
+
   @ReactMethod
   public void asyncMediaInformationSessionExecute(final Double sessionId, final Double waitTimeout, final Promise promise) {
     if (sessionId != null) {
@@ -709,6 +978,8 @@ public class FFmpegKitReactNativeModule extends ReactContextBaseJavaModule {
     }
   }
 
+  // FFprobeKit
+
   @ReactMethod
   public void getSessionHistorySize(final Promise promise) {
     promise.resolve(FFmpegKitConfig.getSessionHistorySize());
@@ -724,6 +995,8 @@ public class FFmpegKitReactNativeModule extends ReactContextBaseJavaModule {
     }
   }
 
+  // MediaInformationSession
+
   @ReactMethod
   public void getSession(final Double sessionId, final Promise promise) {
     if (sessionId != null) {
@@ -737,6 +1010,8 @@ public class FFmpegKitReactNativeModule extends ReactContextBaseJavaModule {
       promise.reject("INVALID_SESSION", "Invalid session id.");
     }
   }
+
+  // Packages
 
   @ReactMethod
   public void getLastSession(final Promise promise) {
@@ -896,8 +1171,6 @@ public class FFmpegKitReactNativeModule extends ReactContextBaseJavaModule {
     }
   }
 
-  // FFmpegKit
-
   @ReactMethod
   public void cancel(final Promise promise) {
     FFmpegKit.cancel();
@@ -919,8 +1192,6 @@ public class FFmpegKitReactNativeModule extends ReactContextBaseJavaModule {
     promise.resolve(toSessionArray(FFmpegKit.listSessions()));
   }
 
-  // FFprobeKit
-
   @ReactMethod
   public void getFFprobeSessions(final Promise promise) {
     promise.resolve(toSessionArray(FFprobeKit.listFFprobeSessions()));
@@ -930,8 +1201,6 @@ public class FFmpegKitReactNativeModule extends ReactContextBaseJavaModule {
   public void getMediaInformationSessions(final Promise promise) {
     promise.resolve(toSessionArray(FFprobeKit.listMediaInformationSessions()));
   }
-
-  // MediaInformationSession
 
   @ReactMethod
   public void getMediaInformation(final Double sessionId, final Promise promise) {
@@ -956,8 +1225,6 @@ public class FFmpegKitReactNativeModule extends ReactContextBaseJavaModule {
       promise.reject("INVALID_SESSION", "Invalid session id.");
     }
   }
-
-  // Packages
 
   @ReactMethod
   public void getPackageName(final Promise promise) {
@@ -989,273 +1256,6 @@ public class FFmpegKitReactNativeModule extends ReactContextBaseJavaModule {
 
   protected void disableStatistics() {
     statisticsEnabled.compareAndSet(true, false);
-  }
-
-  protected static int toInt(final Level level) {
-    return (level == null) ? Level.AV_LOG_TRACE.getValue() : level.getValue();
-  }
-
-  protected static WritableMap toMap(final Session session) {
-    if (session == null) {
-      return null;
-    }
-
-    final WritableMap sessionMap = Arguments.createMap();
-
-    sessionMap.putDouble(KEY_SESSION_ID, session.getSessionId());
-    sessionMap.putDouble(KEY_SESSION_CREATE_TIME, toLong(session.getCreateTime()));
-    sessionMap.putDouble(KEY_SESSION_START_TIME, toLong(session.getStartTime()));
-    sessionMap.putString(KEY_SESSION_COMMAND, session.getCommand());
-
-    if (session.isFFmpeg()) {
-      sessionMap.putDouble(KEY_SESSION_TYPE, SESSION_TYPE_FFMPEG);
-    } else if (session.isFFprobe()) {
-      sessionMap.putDouble(KEY_SESSION_TYPE, SESSION_TYPE_FFPROBE);
-    } else if (session.isMediaInformation()) {
-      final MediaInformationSession mediaInformationSession = (MediaInformationSession) session;
-      final MediaInformation mediaInformation = mediaInformationSession.getMediaInformation();
-      if (mediaInformation != null) {
-        sessionMap.putMap(KEY_SESSION_MEDIA_INFORMATION, toMap(mediaInformation));
-      }
-      sessionMap.putDouble(KEY_SESSION_TYPE, SESSION_TYPE_MEDIA_INFORMATION);
-    }
-
-    return sessionMap;
-  }
-
-  protected static long toLong(final Date date) {
-    if (date != null) {
-      return date.getTime();
-    } else {
-      return 0;
-    }
-  }
-
-  protected static int toInt(final LogRedirectionStrategy logRedirectionStrategy) {
-    switch (logRedirectionStrategy) {
-      case ALWAYS_PRINT_LOGS:
-        return 0;
-      case PRINT_LOGS_WHEN_NO_CALLBACKS_DEFINED:
-        return 1;
-      case PRINT_LOGS_WHEN_GLOBAL_CALLBACK_NOT_DEFINED:
-        return 2;
-      case PRINT_LOGS_WHEN_SESSION_CALLBACK_NOT_DEFINED:
-        return 3;
-      case NEVER_PRINT_LOGS:
-      default:
-        return 4;
-    }
-  }
-
-  protected static LogRedirectionStrategy toLogRedirectionStrategy(final int value) {
-    switch (value) {
-      case 0:
-        return LogRedirectionStrategy.ALWAYS_PRINT_LOGS;
-      case 1:
-        return LogRedirectionStrategy.PRINT_LOGS_WHEN_NO_CALLBACKS_DEFINED;
-      case 2:
-        return LogRedirectionStrategy.PRINT_LOGS_WHEN_GLOBAL_CALLBACK_NOT_DEFINED;
-      case 3:
-        return LogRedirectionStrategy.PRINT_LOGS_WHEN_SESSION_CALLBACK_NOT_DEFINED;
-      case 4:
-      default:
-        return LogRedirectionStrategy.NEVER_PRINT_LOGS;
-    }
-  }
-
-  protected static SessionState toSessionState(final int value) {
-    switch (value) {
-      case 0:
-        return SessionState.CREATED;
-      case 1:
-        return SessionState.RUNNING;
-      case 2:
-        return SessionState.FAILED;
-      case 3:
-      default:
-        return SessionState.COMPLETED;
-    }
-  }
-
-  protected static WritableArray toStringArray(final List<String> list) {
-    final WritableArray array = Arguments.createArray();
-
-    if (list != null) {
-      for (String item : list) {
-        array.pushString(item);
-      }
-    }
-
-    return array;
-  }
-
-  protected static Map<String, String> toMap(final ReadableMap readableMap) {
-    final Map<String, String> map = new HashMap<>();
-
-    if (readableMap != null) {
-      final ReadableMapKeySetIterator iterator = readableMap.keySetIterator();
-      while (iterator.hasNextKey()) {
-        final String key = iterator.nextKey();
-        final ReadableType type = readableMap.getType(key);
-
-        if (type == ReadableType.String) {
-          map.put(key, readableMap.getString(key));
-        }
-      }
-    }
-
-    return map;
-  }
-
-  protected static WritableMap toMap(final com.arthenica.ffmpegkit.Log log) {
-    final WritableMap logMap = Arguments.createMap();
-
-    logMap.putDouble(KEY_LOG_SESSION_ID, log.getSessionId());
-    logMap.putDouble(KEY_LOG_LEVEL, toInt(log.getLevel()));
-    logMap.putString(KEY_LOG_MESSAGE, log.getMessage());
-
-    return logMap;
-  }
-
-  protected static WritableMap toMap(final Statistics statistics) {
-    final WritableMap statisticsMap = Arguments.createMap();
-
-    if (statistics != null) {
-      statisticsMap.putDouble(KEY_STATISTICS_SESSION_ID, statistics.getSessionId());
-      statisticsMap.putDouble(KEY_STATISTICS_VIDEO_FRAME_NUMBER, statistics.getVideoFrameNumber());
-      statisticsMap.putDouble(KEY_STATISTICS_VIDEO_FPS, statistics.getVideoFps());
-      statisticsMap.putDouble(KEY_STATISTICS_VIDEO_QUALITY, statistics.getVideoQuality());
-      statisticsMap.putDouble(KEY_STATISTICS_SIZE, statistics.getSize());
-      statisticsMap.putDouble(KEY_STATISTICS_TIME, statistics.getTime());
-      statisticsMap.putDouble(KEY_STATISTICS_BITRATE, statistics.getBitrate());
-      statisticsMap.putDouble(KEY_STATISTICS_SPEED, statistics.getSpeed());
-    }
-
-    return statisticsMap;
-  }
-
-  protected static WritableMap toMap(final MediaInformation mediaInformation) {
-    if (mediaInformation != null) {
-      WritableMap map = Arguments.createMap();
-
-      JSONObject allProperties = mediaInformation.getAllProperties();
-      if (allProperties != null) {
-        map = toMap(allProperties);
-      }
-
-      return map;
-    } else {
-      return null;
-    }
-  }
-
-  protected static WritableMap toMap(final JSONObject jsonObject) {
-    final WritableMap map = Arguments.createMap();
-
-    if (jsonObject != null) {
-      Iterator<String> keys = jsonObject.keys();
-      while (keys.hasNext()) {
-        String key = keys.next();
-        Object value = jsonObject.opt(key);
-        if (value != null) {
-          if (value instanceof JSONArray) {
-            map.putArray(key, toList((JSONArray) value));
-          } else if (value instanceof JSONObject) {
-            map.putMap(key, toMap((JSONObject) value));
-          } else if (value instanceof String) {
-            map.putString(key, (String) value);
-          } else if (value instanceof Number) {
-            if (value instanceof Integer) {
-              map.putInt(key, (Integer) value);
-            } else {
-              map.putDouble(key, ((Number) value).doubleValue());
-            }
-          } else if (value instanceof Boolean) {
-            map.putBoolean(key, (Boolean) value);
-          } else {
-            Log.i(LIBRARY_NAME, String.format("Cannot map json key %s using value %s:%s", key, value.toString(), value.getClass().toString()));
-          }
-        }
-      }
-    }
-
-    return map;
-  }
-
-  protected static WritableArray toList(final JSONArray array) {
-    final WritableArray list = Arguments.createArray();
-
-    for (int i = 0; i < array.length(); i++) {
-      Object value = array.opt(i);
-      if (value != null) {
-        if (value instanceof JSONArray) {
-          list.pushArray(toList((JSONArray) value));
-        } else if (value instanceof JSONObject) {
-          list.pushMap(toMap((JSONObject) value));
-        } else if (value instanceof String) {
-          list.pushString((String) value);
-        } else if (value instanceof Number) {
-          if (value instanceof Integer) {
-            list.pushInt((Integer) value);
-          } else {
-            list.pushDouble(((Number) value).doubleValue());
-          }
-        } else if (value instanceof Boolean) {
-          list.pushBoolean((Boolean) value);
-        } else {
-          Log.i(LIBRARY_NAME, String.format("Cannot map json value %s:%s", value.toString(), value.getClass().toString()));
-        }
-      }
-    }
-
-    return list;
-  }
-
-  protected static String[] toArgumentsArray(final ReadableArray readableArray) {
-    final List<String> arguments = new ArrayList<>();
-    for (int i = 0; i < readableArray.size(); i++) {
-      final ReadableType type = readableArray.getType(i);
-
-      if (type == ReadableType.String) {
-        arguments.add(readableArray.getString(i));
-      }
-    }
-
-    return arguments.toArray(new String[0]);
-  }
-
-  protected static WritableArray toSessionArray(final List<? extends Session> sessionList) {
-    final WritableArray sessionArray = Arguments.createArray();
-
-    for (int i = 0; i < sessionList.size(); i++) {
-      sessionArray.pushMap(toMap(sessionList.get(i)));
-    }
-
-    return sessionArray;
-  }
-
-  protected static WritableArray toLogArray(final List<com.arthenica.ffmpegkit.Log> logList) {
-    final WritableArray logArray = Arguments.createArray();
-
-    for (int i = 0; i < logList.size(); i++) {
-      logArray.pushMap(toMap(logList.get(i)));
-    }
-
-    return logArray;
-  }
-
-  protected static WritableArray toStatisticsArray(final List<com.arthenica.ffmpegkit.Statistics> statisticsList) {
-    final WritableArray statisticsArray = Arguments.createArray();
-
-    for (int i = 0; i < statisticsList.size(); i++) {
-      statisticsArray.pushMap(toMap(statisticsList.get(i)));
-    }
-
-    return statisticsArray;
-  }
-
-  protected static boolean isValidPositiveNumber(final Double value) {
-    return (value != null) && (value.intValue() >= 0);
   }
 
 }

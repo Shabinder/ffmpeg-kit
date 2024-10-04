@@ -9,6 +9,6 @@ markdown: kramdown
 show_downloads: true
 github:
   zip_url:
-  tar_url: 
+  tar_url:
   owner_name: ARTHENICA
   owner_url: https://github.com/arthenica
