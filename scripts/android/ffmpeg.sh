@@ -510,12 +510,20 @@ fi
   --strip="${STRIP}" \
   --nm="${NM}" \
   --extra-libs="$(pkg-config --libs --static cpu-features)" \
+  --disable-everything \
   --disable-autodetect \
   --enable-cross-compile \
   --enable-pic \
   --enable-jni \
   --enable-optimizations \
-  --enable-swscale \
+  --enable-small \
+  --enable-filter=aresample,acopy \
+  --enable-decoder=aac*,mp3,ac3* \
+  --enable-encoder=libmp3lame,aac* \
+  --enable-demuxer=mov,mpegts,aac*,mp3,hls \
+  --enable-parser=aac* \
+  --enable-muxer=mp3,mp4,ipod,aac* \
+  --enable-protocol=file,hls,https \
   ${BUILD_LIBRARY_OPTIONS} \
   --enable-pthreads \
   --enable-v4l2-m2m \
