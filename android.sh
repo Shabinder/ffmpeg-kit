@@ -1,6 +1,6 @@
 #!/bin/bash
 
-export ANDROID_SDK_ROOT="/Users/shabinder/Library/Android/sdk"
+export ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-/Users/admin/Library/Android/sdk}"
 export ANDROID_NDK_ROOT="${ANDROID_NDK_ROOT:-/Users/admin/Library/Android/sdk/ndk/28.2.13676358}"
 
 if [[ -z ${ANDROID_SDK_ROOT} ]]; then

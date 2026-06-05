@@ -89,7 +89,7 @@ APP_STL := ${APP_STL}
 
 APP_PLATFORM := android-${API}
 
-APP_CFLAGS := -O3 -DANDROID ${LTS_BUILD_FLAG}${BUILD_DATE} -Wall -Wno-deprecated-declarations -Wno-pointer-sign -Wno-switch -Wno-unused-result -Wno-unused-variable
+APP_CFLAGS := -O3 -DANDROID ${LTS_BUILD_FLAG}${BUILD_DATE} -Wall -Wno-deprecated-declarations -Wno-pointer-sign -Wno-switch -Wno-unused-result -Wno-unused-variable -Wno-single-bit-bitfield-constant-conversion
 
 APP_LDFLAGS := -Wl,--hash-style=both -Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384
 EOF
@@ -1020,7 +1020,9 @@ android_ndk_cmake() {
     -H"${BASEDIR}"/src/"${LIB_NAME}" \
     -B"${BUILD_DIR}" \
     "${ASM_OPTIONS}" \
-    -DANDROID_PLATFORM=android-"${API}"
+    -DANDROID_PLATFORM=android-"${API}" \
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+    -DBUILD_TESTING=OFF
 }
 
 set_toolchain_paths() {
